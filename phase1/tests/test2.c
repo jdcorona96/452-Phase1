@@ -12,7 +12,7 @@ int Child(void *arg) {
     int     state;
     int     status = 0;
     USLOSS_Console("Child\n");
-    pid = P1_Fork("Grandchild", Grandchild, NULL, USLOSS_MIN_STACK, 2);
+    pid = P1_Fork("Grandchild", Grandchild, NULL, USLOSS_MIN_STACK, 2, 0);
     if (pid < 0) {
         USLOSS_Console("Unable to fork child: %d\n", pid);
         status = 1;
@@ -37,7 +37,7 @@ int P2_Startup(void *notused)
     int status = 0;
 
     USLOSS_Console("P2_Startup\n");
-    pid = P1_Fork("Child", Child, NULL, USLOSS_MIN_STACK, 3);
+    pid = P1_Fork("Child", Child, NULL, USLOSS_MIN_STACK, 3, 0);
     if (pid < 0) {
         USLOSS_Console("Unable to fork child: %d\n", pid);
         status = 1;
@@ -45,10 +45,10 @@ int P2_Startup(void *notused)
     return status;
 }
 
-void setup(void) {
+void test_setup(int argc, char **argv) {
     // Do nothing.
 }
 
-void cleanup(void) {
+void test_cleanup(int argc, char **argv) {
     // Do nothing.
 }

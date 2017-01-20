@@ -16,14 +16,12 @@
 #
 #	make clean	(removes all files created by this Makefile)
 
-ifndef CS452_STUDENTS
-	452-STUDENTS = $(HOME)/Dropbox/452-students
-else
-	452-STUDENTS = $(CS452_STUDENTS)
+ifndef PREFIX
+	PREFIX = $(HOME)
 endif
 
 # Set to version of USLOSS you want to use.
-USLOSS_VERSION = 2.11
+USLOSS_VERSION = 3.0
 
 SRCS = $(wildcard *.c)
 
@@ -44,7 +42,7 @@ CFLAGS += -DDEBUG
 
 TARGET = libphase1.a
 
-INCLUDES = -I$(452-STUDENTS)/include -I.
+INCLUDES = -I$(PREFIX)/include -I.
 
 ifeq ($(shell uname),Darwin)
 	DEFINES += -D_XOPEN_SOURCE
@@ -59,7 +57,7 @@ CC=gcc
 LD=gcc
 AR=ar    
 CFLAGS += $(INCLUDES) $(DEFINES)
-LDFLAGS = -L$(452-STUDENTS)/lib/$(OS) -L.
+LDFLAGS = -L$(PREFIX)/lib -L.
 COBJS = ${SRCS:.c=.o}
 DEPS = ${COBJS:.o=.d}
 TSRCS = {$TESTS:=.c}

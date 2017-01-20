@@ -6,10 +6,10 @@ int P2_Startup(void *notused)
     return 0;
 }
 
-void setup(void) {
+void test_setup(int argc, char **argv) {
     // Do nothing.
 }
 
-void cleanup(void) {
+void test_cleanup(int argc, char **argv) {
     // Do nothing.
 }

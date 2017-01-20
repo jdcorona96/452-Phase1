@@ -58,7 +58,7 @@ void dispatcher()
    Returns - nothing
    Side Effects - lots, starts the whole thing
    ----------------------------------------------------------------------- */
-void startup()
+void startup(int argc, char **argv)
 {
 
   /* initialize the process table here */
@@ -71,13 +71,14 @@ void startup()
 
   /* startup a sentinel process */
   /* HINT: you don't want any forked processes to run until startup is finished.
-   * You'll need to do something in your dispatcher to prevent that from happening.
-   * Otherwise your sentinel will start running right now and it will call P1_Halt. 
+   * You'll need to do something  to prevent that from happening.
+   * Otherwise your sentinel will start running as soon as you fork it and 
+   * it will call P1_Halt because it is the only running process.
    */
-  P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6);
+  P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6, 0);
 
   /* start the P2_Startup process */
-  P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 1);
+  P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 1, 0);
 
   dispatcher();
 
@@ -93,7 +94,7 @@ void startup()
    Returns - nothing
    Side Effects - none
    ----------------------------------------------------------------------- */
-void finish()
+void finish(int argc, char **argv)
 {
   USLOSS_Console("Goodbye.\n");
 } /* End of finish */
@@ -109,18 +110,13 @@ void finish()
    Side Effects - ReadyList is changed, procTable is changed, Current
                   process information changed
    ------------------------------------------------------------------------ */
-int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority)
+int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority, int tag)
 {
     int newPid = 0;
-    void *stack = NULL;
     /* newPid = pid of empty PCB here */
     procTable[newPid].startFunc = f;
     procTable[newPid].startArg = arg;
-    /* stack = allocated stack here */
-    /* Uncomment this once you have allocated a stack.
-    USLOSS_ContextInit(&(procTable[newPid].context), USLOSS_PsrGet(), stack, 
-        stacksize, launch);
-    */
+    // more stuff here, e.g. allocate stack, page table, initialize context, etc.
     return newPid;
 } /* End of fork */
 
@@ -135,7 +131,12 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
 void launch(void)
 {
   int  rc;
-  USLOSS_PsrSet(USLOSS_PsrGet() | USLOSS_PSR_CURRENT_INT);
+  int  status;
+  status = USLOSS_PsrSet(USLOSS_PsrGet() | USLOSS_PSR_CURRENT_INT);
+  if (status != 0) {
+      USLOSS_Console("USLOSS_PsrSet failed: %d\n", status);
+      USLOSS_Halt(1);
+  }
   rc = procTable[pid].startFunc(procTable[pid].startArg);
   /* quit if we ever come back */
   P1_Quit(rc);
@@ -152,6 +153,16 @@ void P1_Quit(int status) {
   // Do something here.
 }
 
+/* ------------------------------------------------------------------------
+   Name - P1_GetState
+   Purpose - gets the state of the process
+   Parameters - process PID
+   Returns - process state
+   Side Effects - none
+   ------------------------------------------------------------------------ */
+int P1_GetState(int PID) {
+  return 0;
+}
 
 /* ------------------------------------------------------------------------
    Name - sentinel
