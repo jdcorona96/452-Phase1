@@ -48,4 +48,7 @@ extern  int     P1_ReadTime(void);
 
 extern  int     P2_Startup(void *arg);
 
+extern  USLOSS_PTE  *P3_AllocatePageTable(int pid);
+extern  void        P3_FreePageTable(int pid);
+
 #endif /* _PHASE1_H */

@@ -64,6 +64,7 @@ TSRCS = {$TESTS:=.c}
 TOBJS = ${TESTS:=.o}
 TOUTS = ${TESTS:=.out}
 TVS = ${TESTS:=.v}
+STUBS = p3/p3stubs.o
 
 # The following is to deal with circular dependencies between the USLOSS and phase1
 # libraries. Unfortunately the linkers handle this differently on the two OSes.
@@ -95,11 +96,11 @@ tests: $(TOUTS)
 %.out: %
 	./$< 1> $@ 2>&1
 
-$(TESTS):   %: $(TARGET) %.o
-	$(LD) $(LDFLAGS) -o $@ $@.o $(LIBFLAGS)
+$(TESTS):   %: $(TARGET) %.o $(STUBS)
+	$(LD) $(LDFLAGS) -o $@ $@.o $(STUBS) $(LIBFLAGS)
 
 clean:
-	rm -f $(COBJS) $(TARGET) $(TOBJS) $(TESTS) $(DEPS) $(TVS) *.out tests/*.out
+	rm -f $(COBJS) $(TARGET) $(TOBJS) $(TESTS) $(DEPS) $(TVS) p3/*.o p3/p3stubsTest *.out tests/*.out
 
 %.d: %.c
 	$(CC) -c $(CFLAGS) -MM -MF $@ $<
@@ -108,5 +109,9 @@ valgrind: $(TVS)
 
 %.v: %
 	valgrind $(VGFLAGS) ./$< 1> $@ 2>&1
+
+p3/p3stubsTest: p3/p3stubs.o p3/p3stubsTest.o
+	$(LD) $(LDFLAGS) -o $@ $^
+
 
 -include $(DEPS)
