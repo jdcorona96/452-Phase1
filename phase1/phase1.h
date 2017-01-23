@@ -30,12 +30,12 @@ typedef void *P1_Semaphore;
 extern  int     P1_Fork(char *name, int(*func)(void *), void *arg, 
                         int stackSize, int priority, int tag);
 extern  void    P1_Quit(int status);
-extern  int     P1_Join(int *status, int tag);
+extern  int     P1_Join(int tag, int *status);
 extern  int     P1_GetPID(void);
 extern  int     P1_GetState(int pid);
 extern  void    P1_DumpProcesses(void);
 
-extern  int     P1_SemCreate(char *name, unsigned int value);
+extern  int     P1_SemCreate(char *name, unsigned int value, P1_Semaphore *sem);
 extern  int     P1_SemFree(P1_Semaphore sem);
 extern  int     P1_P(P1_Semaphore sem);
 extern  int     P1_V(P1_Semaphore sem);
