@@ -1,3 +1,4 @@
+# 1/24/17
 # This is a sample Makefile for Phase 1. It provides the following targets 
 # (assumes test source files are named testN.c)
 # You may change this, e.g. to add new test cases, but keep in mind we will compile
@@ -23,9 +24,10 @@ endif
 # Set to version of USLOSS you want to use.
 USLOSS_VERSION = 3.0
 
+# All .c files in this directory are included in the Phase 1 library.
 SRCS = $(wildcard *.c)
 
-# Add any tests here. If the test is named test0 then the source file is assumed to be test0.c.
+# Each .c file in the tests subdirectory is a separate test case.
 TESTS = $(patsubst %.c,%,$(wildcard tests/*.c))
 
 # Change this if you want to change the arguments to valgrind.
@@ -110,7 +112,7 @@ valgrind: $(TVS)
 %.v: %
 	valgrind $(VGFLAGS) ./$< 1> $@ 2>&1
 
-p3/p3stubsTest: p3/p3stubs.o p3/p3stubsTest.o
+p3/p3stubsTest: $(STUBS) p3/p3stubsTest.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
 
