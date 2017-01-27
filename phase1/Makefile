@@ -1,4 +1,4 @@
-# 1/24/17
+# 1/27/17
 # This is a sample Makefile for Phase 1. It provides the following targets 
 # (assumes test source files are named testN.c)
 # You may change this, e.g. to add new test cases, but keep in mind we will compile
