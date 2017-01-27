@@ -58,7 +58,7 @@ endif
 CC=gcc
 LD=gcc
 AR=ar    
-CFLAGS += $(INCLUDES) $(DEFINES)
+CFLAGS += $(INCLUDES) $(DEFINES) -Werror
 LDFLAGS = -L$(PREFIX)/lib -L.
 COBJS = ${SRCS:.c=.o}
 DEPS = ${COBJS:.o=.d}
