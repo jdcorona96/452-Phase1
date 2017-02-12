@@ -2,7 +2,7 @@
  * These are the definitions for Phase 1 of the project (the kernel).
  * DO NOT MODIFY THIS FILE.
  *
- * 2/10/17
+ * Version: 1.1
  */
 
 #ifndef _PHASE1_H

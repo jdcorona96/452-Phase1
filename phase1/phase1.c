@@ -1,5 +1,6 @@
 /* ------------------------------------------------------------------------
    phase1.c
+   Version: 1.1
 
    Skeleton file for Phase 1. These routines are very incomplete and are
    intended to give you a starting point. Feel free to use this or not.
