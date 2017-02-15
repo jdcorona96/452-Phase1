@@ -13,6 +13,8 @@
 #	make valgrind	(makes all testN.v files, i.e. runs valgrind on all tests)
 #
 #	make clean	(removes all files created by this Makefile)
+#
+#   make install (installs library in PREFIX/lib and header in PREFIX/include
 
 ifndef PREFIX
 	PREFIX = $(HOME)
