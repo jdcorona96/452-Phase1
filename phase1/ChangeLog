@@ -1,0 +1,2 @@
+1.2     Added "make install" target.
+        Library name includes version, e.g. libphase1.2.a
