@@ -1,8 +1,5 @@
-# Verson: 1.1
-# This is a sample Makefile for Phase 1. It provides the following targets 
-# (assumes test source files are named testN.c)
-# You may change this, e.g. to add new test cases, but keep in mind we will compile
-# your phase1.c using our own copy of this file.
+# Verson: 1.2
+# This is a sample Makefile for Phase 1. 
 #
 #	make		(makes libphase1.a and all tests)
 #        make phase1     ditto
@@ -21,7 +18,10 @@ ifndef PREFIX
 	PREFIX = $(HOME)
 endif
 
-# Set to version of USLOSS you want to use.
+# Set to Phase 1 version
+PHASE1_VERSION = 1.2
+
+# Set to USLOSS version
 USLOSS_VERSION = 3.0
 
 # All .c files in this directory are included in the Phase 1 library.
@@ -34,7 +34,7 @@ TESTS = $(patsubst %.c,%,$(wildcard tests/*.c))
 VGFLAGS = --track-origins=yes --leak-check=full --max-stackframe=100000
 
 # Change this if you need to link against additional libraries (probably not).
-LIBS = -lusloss$(USLOSS_VERSION) -lphase1
+LIBS = -lusloss$(USLOSS_VERSION) -lphase$(PHASE1_VERSION)
 
 # Change this if you want change which flags are passed to the C compiler.
 CFLAGS += -Wall -g -std=gnu99
@@ -42,9 +42,13 @@ CFLAGS += -DDEBUG
 
 # You shouldn't need to change anything below here. 
 
-TARGET = libphase1.a
+LIB_DIR = $(PREFIX)/lib
+INC_DIR	= $(PREFIX)/include
+INSTALL_DATA = /usr/bin/install -c
 
-INCLUDES = -I$(PREFIX)/include -I.
+TARGET = libphase$(PHASE1_VERSION).a
+
+INCLUDES = -I$(INC_DIR) -I.
 
 ifeq ($(shell uname),Darwin)
 	DEFINES += -D_XOPEN_SOURCE
@@ -59,7 +63,7 @@ CC=gcc
 LD=gcc
 AR=ar    
 CFLAGS += $(INCLUDES) $(DEFINES) -Werror
-LDFLAGS = -L$(PREFIX)/lib -L.
+LDFLAGS = -L$(LIB_DIR) -L.
 COBJS = ${SRCS:.c=.o}
 DEPS = ${COBJS:.o=.d}
 TSRCS = {$TESTS:=.c}
@@ -103,6 +107,11 @@ $(TESTS):   %: $(TARGET) %.o $(STUBS)
 
 clean:
 	rm -f $(COBJS) $(TARGET) $(TOBJS) $(TESTS) $(DEPS) $(TVS) p3/*.o p3/p3stubsTest *.out tests/*.out
+
+install: $(TARGET)
+		mkdir -p $(INC_DIR) $(LIB_DIR)
+		$(INSTALL_DATA) phase1.h $(INC_DIR)
+		$(INSTALL_DATA) $(TARGET) $(LIB_DIR)
 
 %.d: %.c
 	$(CC) -c $(CFLAGS) -MM -MF $@ $<
