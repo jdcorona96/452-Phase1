@@ -1,4 +1,4 @@
-# Verson: 1.2
+# Verson: 1.3
 # This is a sample Makefile for Phase 1. 
 #
 #	make		(makes libphase1.a and all tests)
@@ -21,7 +21,7 @@ ifndef PREFIX
 endif
 
 # Set to Phase 1 version
-PHASE1_VERSION = 1.2
+PHASE1_VERSION = 1.3
 
 # Set to USLOSS version
 USLOSS_VERSION = 3.0

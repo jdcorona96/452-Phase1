@@ -23,7 +23,7 @@ int Child(void *arg) {
          * we get here.
          */
         state = P1_GetState(pid);
-        if (state != 3) { // grandchild should have quit
+        if ((state != 3) && (state != 4)) { // grandchild should have quit
             USLOSS_Console("Grandchild is in invalid state: %d\n", state);
             status = 1;
         }
