@@ -1,4 +1,4 @@
-# Verson: 1.3
+# Verson: 1.4
 # This is a sample Makefile for Phase 1. 
 #
 #	make		(makes libphase1.a and all tests)

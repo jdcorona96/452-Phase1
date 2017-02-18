@@ -37,7 +37,7 @@ extern  int     P1_GetPID(void);
 extern  int     P1_GetState(int pid);
 extern  void    P1_DumpProcesses(void);
 
-extern  int     P1_SemCreate(char *name, unsigned int value, P1_Semaphore **sem);
+extern  int     P1_SemCreate(char *name, unsigned int value, P1_Semaphore *sem);
 extern  int     P1_SemFree(P1_Semaphore sem);
 extern  int     P1_P(P1_Semaphore sem);
 extern  int     P1_V(P1_Semaphore sem);
