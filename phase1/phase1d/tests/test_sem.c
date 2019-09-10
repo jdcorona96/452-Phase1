@@ -12,28 +12,35 @@
 
 #include "phase1.h"
 #include <stdio.h>
+#include <assert.h>
 
-P1_Semaphore sem1;
+int sem1;
 
 int child(void *arg) {
-    USLOSS_Console(" %d \n", 0);
-    P1_V(sem1);
+    int rc;
+    USLOSS_Console("child");
+    rc = P1_V(sem1);
+    assert(rc == P1_SUCCESS);
     return 0;
 }
 
 int P2_Startup(void *arg){
 
+    int rc;
+    int pid;
     USLOSS_Console(" \n---------Starting Test SEM ----------\n");
-    P1_Fork("child", child, NULL, USLOSS_MIN_STACK, 4 , 0);
-    int result = P1_SemCreate("semaphore" , 0, &sem1 );
-    if ( result != 0 )
+    rc = P1_Fork("child", child, NULL, USLOSS_MIN_STACK, 4 , 0, &pid);
+    assert(rc == P1_SUCCESS);
+    rc = P1_SemCreate("semaphore" , 0, &sem1 );
+    if (rc)
     {
-        USLOSS_Console("Could not create semaphore, result: %d\n", result );
+        USLOSS_Console("Could not create semaphore, result: %d\n", rc );
     }
     
-    P1_P(sem1);
-    USLOSS_Console(" %d \n", 1);
+    rc = P1_P(sem1);
 
+    USLOSS_Console(" %d \n", 1);
+    assert(rc == P1_SUCCESS);
     USLOSS_Console(" ---------Ending Test SEM ----------\n");
     return 0;
 }

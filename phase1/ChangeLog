@@ -1,7 +1,0 @@
-1.4     Backed out change to P1_SemCreate.
-1.3     Changed definition of P1_SemCreate.
-        Fixed test2.c to allow child to be in "waiting for semaphore" state.
-        
-1.2     Added "make install" target.
-        Library name includes version, e.g. libphase1.2.a
-        Added test_join, test_quit, and test_device_clock.

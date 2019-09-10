@@ -11,16 +11,19 @@ int P2_Startup(void *notused)
 {
     #define NUM 10
     int status = 0;
+    int rc;
     int pids[NUM];
     for (int i = 0; i < 100; i++) {
         for (int j = 0; j < NUM; j++) {
-            pids[j] = P1_Fork("Child", Child, (void *) j, USLOSS_MIN_STACK, 3, 0);
-            assert(pids[j] >= 0);
+            char name[P1_MAXNAME+1];
+            snprintf(name, sizeof(name), "Child %d", j);
+            rc = P1_Fork(name, Child, (void *) j, USLOSS_MIN_STACK, 3, 0, &pids[j]);
+            assert(rc == P1_SUCCESS);
         }
         for (int j = 0; j < NUM; j++) {
             int pid;
-            pid = P1_Join(0, &status);
-            assert(pid >= 0);
+            rc = P1_Join(0, &pid, &status);
+            assert(rc == P1_SUCCESS);
             int found = 0;
             for (int k = 0; k < NUM; k++) {
                 if (pids[k] == pid) {
