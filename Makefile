@@ -8,9 +8,9 @@ all: $(SUBDIRS)
 subdirs: $(SUBDIRS)
 
 clean: $(SUBDIRS)
+	rm -f p3/*.o
 
 install: $(SUBDIRS)
-	rm -f p3/*.o
 
 $(SUBDIRS):
 	$(MAKE) -C $@ $(MAKECMDGOALS)
