@@ -16,15 +16,15 @@ typedef struct Context {
 
 static Context   contexts[P1_MAXPROC];
 
-static int cid = -1;
+static int currentCid = -1;
 
 /*
  * Helper function to call func passed to P1ContextCreate with its arg.
  */
 static void launch(void)
 {
-    assert(contexts[cid].startFunc != NULL);
-    contexts[cid].startFunc(contexts[cid].startArg);
+    assert(contexts[currentCid].startFunc != NULL);
+    contexts[currentCid].startFunc(contexts[currentCid].startArg);
 }
 
 void P1ContextInit(void)
