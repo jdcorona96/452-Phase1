@@ -122,5 +122,6 @@ extern  int             P2_Startup(void *arg) CHECKRETURN;
 #define P1_WAIT_ABORTED -16
 #define P1_CHILD_QUIT -17
 #define P1_NAME_TOO_LONG -18
+#define P1_CONTEXT_IN_USE -19
 
 #endif /* _PHASE1_H */
