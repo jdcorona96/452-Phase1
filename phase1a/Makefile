@@ -27,9 +27,10 @@ VERSION = 1.0
 # Set to version of USLOSS you want to use.
 USLOSS_VERSION = 3.6
 
+# Every C file in this directory is included in the library.
 SRCS = $(wildcard *.c)
 
-# Add any tests here. If the test is named test0 then the source file is assumed to be test0.c.
+# Every C file in the tests subdirectory is a separate test. 
 TESTS = $(patsubst %.c,%,$(wildcard tests/*.c))
 
 # Change this if you want to change the arguments to valgrind.
@@ -107,7 +108,7 @@ tests: $(TOUTS)
 $(TESTS):   %: $(TARGET) %.o $(STUBS)
 	$(LD) $(LDFLAGS) -o $@ $@.o $(STUBS) $(LIBFLAGS)
 
-clean:
+clean::
 	rm -f $(COBJS) $(TARGET) $(TOBJS) $(TESTS) $(DEPS) $(TVS) *.out tests/*.out tests/*.err
 
 %.d: %.c
