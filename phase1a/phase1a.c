@@ -4,8 +4,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-extern  USLOSS_PTE  *P3_AllocatePageTable(int pid);
-extern  void        P3_FreePageTable(int pid);
+extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
+extern  void        P3_FreePageTable(int cid);
 
 typedef struct Context {
     void            (*startFunc)(void *);
@@ -55,7 +55,7 @@ int P1ContextFree(int cid) {
 void 
 P1EnableInterrupts(void) 
 {
-    // clear the interrupt bit in the PSR
+    // set the interrupt bit in the PSR
 }
 
 /*
@@ -66,6 +66,6 @@ P1DisableInterrupts(void)
 {
     int enabled = FALSE;
     // set enabled to TRUE if interrupts are already enabled
-    // set the interrupt bit in the PSR
+    // clear the interrupt bit in the PSR
     return enabled;
 }
