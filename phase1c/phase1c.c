@@ -20,7 +20,10 @@ void
 P1SemInit(void) 
 {
     P1ProcInit();
-    // initialize sems here
+    for (int i = 0; i < P1_MAXSEM; i++) {
+        sems[i].name[0] = '\0';
+        // initialize rest of sem here
+    }
 }
 
 int P1_SemCreate(char *name, unsigned int value, int *sid)
