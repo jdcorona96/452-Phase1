@@ -23,7 +23,11 @@ static PCB processTable[P1_MAXPROC];   // the process table
 void P1ProcInit(void)
 {
     P1ContextInit();
-    // initialize everything including the processTable
+    for (int i = 0; i < P1_MAXPROC; i++) {
+        processTable[i].state = P1_STATE_FREE;
+        // initialize the rest of the PCB
+    }
+    // initialize everything else
 
 }
 
