@@ -32,6 +32,14 @@ static void launch(void)
 
 void P1ContextInit(void)
 {
+    //checking if function was called in kernel mode
+    int psr = USLOSS_PsrGet();
+    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+        USLOSS_IllegalInstruction();
+        USLOSS_Halt(0);
+        
+    }
+
     // initialize contexts
 
 	for (i = 0; i < P1_MAXPROC; i++){
@@ -42,6 +50,12 @@ void P1ContextInit(void)
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     int result = P1_SUCCESS;
+
+    int psr = USLOSS_PsrGet();
+    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+        USLOSS_IllegalInstruction();
+        USLOSS_Halt(0);    
+    }
 
 	if (stacksize < USLOSS_MIN_STACK){
 		return P1_INVALID_STACK;
@@ -79,6 +93,14 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 
 int P1ContextSwitch(int cid) {
 	USLOSS_Console("4");
+
+    int psr = USLOSS_PsrGet();
+    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+        USLOSS_IllegalInstruction();
+        USLOSS_Halt(0);
+        
+    }
+
     int result = P1_SUCCESS;
 	if (cid < 0 || cid > P1_MAXPROC - 1){
 		return P1_INVALID_CID;
@@ -92,6 +114,14 @@ int P1ContextSwitch(int cid) {
 
 int P1ContextFree(int cid) {
 	USLOSS_Console("5");
+    
+    int psr = USLOSS_PsrGet();
+    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+        USLOSS_IllegalInstruction();
+        USLOSS_Halt(0);
+        
+    }
+    
     int result = P1_SUCCESS;
     // free the stack and mark the context as unused
     if (cid < 0 || cid > P1_MAXPROC-1)
@@ -112,8 +142,15 @@ void
 P1EnableInterrupts(void) 
 {
 	USLOSS_Console("6");
+    
+    int psr = USLOSS_PsrGet();
+    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+        USLOSS_IllegalInstruction();
+        USLOSS_Halt(0);
+        
+    }
+    
     // set the interrupt bit in the PSR
-    int psr= USLOSS_PsrGet();
     int res = USLOSS_PsrSet(psr | USLOSS_PSR_CURRENT_INT);
     assert(res == USLOSS_DEV_OK);
 }
@@ -127,10 +164,18 @@ int
 P1DisableInterrupts(void) 
 {
 	USLOSS_Console("7");
+    
+    
+    int psr = USLOSS_PsrGet();
+    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+        USLOSS_IllegalInstruction();
+        USLOSS_Halt(0);
+        
+    }
+    
     int enabled = FALSE;
     // set enabled to TRUE if interrupts are already enabled
     // clear the interrupt bit in the PSR
-    int psr = USLOSS_PsrGet();
     int res = USLOSS_PsrSet(psr & 0xd);
     assert(res == USLOSS_DEV_OK);
     if (psr & USLOSS_PSR_CURRENT_INT)
