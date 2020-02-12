@@ -83,7 +83,7 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	contexts[i].startFunc = func;
 	contexts[i].startArg = arg;
     contexts[i].stack = &tempStack;
-	currentCid = *cid;
+	//currentCid = *cid;
 
 	
 	// find a free context and initialize it
@@ -106,8 +106,14 @@ int P1ContextSwitch(int cid) {
 		return P1_INVALID_CID;
 	}
 
-	USLOSS_ContextSwitch(&contexts[currentCid].context, &contexts[cid].context);
-
+    if (currentCid < 0 || currentCid > P1_MAXPROC-1) {
+        currentCid = cid;
+        USLOSS_ContextSwitch(NULL, &contexts[cid].context);
+    } else {
+        currentCid = cid;
+        USLOSS_ContextSwitch(
+            &contexts[currentCid].context, &contexts[cid].context);
+    }
     // switch to the specified context
     return result;
 }
