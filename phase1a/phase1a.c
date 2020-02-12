@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-//testing`
+
 extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
 extern  void        P3_FreePageTable(int cid);
 
@@ -11,17 +11,14 @@ typedef struct Context {
     void            (*startFunc)(void *);
     void            *startArg;
     USLOSS_Context  context;
-	int 			cid;
+	int 			occupied;
+	char			**stack;
     // you'll need more stuff here
 } Context;
 
 static Context   contexts[P1_MAXPROC];
 int i = 0;
 static int currentCid = -1;
-
-//TEMP USLOSS_Context STRUCT and stack
-//USLOSS_Context *tempContext;
-
 
 
 /*
@@ -36,9 +33,9 @@ static void launch(void)
 void P1ContextInit(void)
 {
     // initialize contexts
-	//MIGHT HAVE ISSUE BECAUSE MALLOC IS VOID POINTER
+
 	for (i = 0; i < P1_MAXPROC; i++){
-		contexts[i].cid = -1;
+		contexts[i].occupied = 0;
 	}
 
 }
@@ -50,39 +47,29 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 		return P1_INVALID_STACK;
 	}
 	
-	char tempStack[stacksize];
-
-
-
-	while (contexts[i].cid == -1) {
-		*cid = i;
+	i = 0;
+	while (contexts[i].occupied == 1) {
 		i++;
 		if (i > P1_MAXPROC){
 			result = P1_TOO_MANY_CONTEXTS;
 			break;
 		}
+	 }
+	USLOSS_Console("%d", i);
+	*cid = i;
+	contexts[i].occupied = 1;
 
-	}
+	char *tempStack = malloc(sizeof(char) *stacksize);
 
-	//tempContext = (USLOSS_Context*) malloc(sizeof(USLOSS_Context));
-	USLOSS_Context *tempContext = (USLOSS_Context*) malloc(sizeof(USLOSS_Context));
-
-	USLOSS_ContextInit(tempContext, tempStack, stacksize,
-						P3_AllocatePageTable(i), &launch);
-
-
-	Context current;
-
-	current.startFunc = func;
-	current.startArg = arg;
-	current.context = *tempContext;
+	USLOSS_Console("%d", i);
+	USLOSS_ContextInit(&contexts[i].context, tempStack, stacksize,
+					   P3_AllocatePageTable(i), &launch);
 
 
+	contexts[i].startFunc = func;
+	contexts[i].startArg = arg;
+	currentCid = *cid;
 
-	contexts[i] = current;
-
-	
-	
 	
 	// find a free context and initialize it
     // allocate the stack, specify the startFunc, etc.
@@ -90,6 +77,7 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 }
 
 int P1ContextSwitch(int cid) {
+	USLOSS_Console("4");
     int result = P1_SUCCESS;
 	if (cid < 0 || cid > P1_MAXPROC - 1){
 		return P1_INVALID_CID;
@@ -102,6 +90,7 @@ int P1ContextSwitch(int cid) {
 }
 
 int P1ContextFree(int cid) {
+	USLOSS_Console("5");
     int result = P1_SUCCESS;
     // free the stack and mark the context as unused
     return result;
@@ -111,6 +100,7 @@ int P1ContextFree(int cid) {
 void 
 P1EnableInterrupts(void) 
 {
+	USLOSS_Console("6");
     // set the interrupt bit in the PSR
 }
 
@@ -120,6 +110,7 @@ P1EnableInterrupts(void)
 int 
 P1DisableInterrupts(void) 
 {
+	USLOSS_Console("7");
     int enabled = FALSE;
     // set enabled to TRUE if interrupts are already enabled
     // clear the interrupt bit in the PSR
