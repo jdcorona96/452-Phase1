@@ -110,9 +110,10 @@ int P1ContextSwitch(int cid) {
         currentCid = cid;
         USLOSS_ContextSwitch(NULL, &contexts[cid].context);
     } else {
+        int tempCur = currentCid;
         currentCid = cid;
         USLOSS_ContextSwitch(
-            &contexts[currentCid].context, &contexts[cid].context);
+            &contexts[tempCur].context, &contexts[cid].context);
     }
     // switch to the specified context
     return result;
