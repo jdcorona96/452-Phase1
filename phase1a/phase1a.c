@@ -68,6 +68,7 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 
 	contexts[i].startFunc = func;
 	contexts[i].startArg = arg;
+    contexts[i].stack = &tempStack;
 	currentCid = *cid;
 
 	
@@ -93,7 +94,17 @@ int P1ContextFree(int cid) {
 	USLOSS_Console("5");
     int result = P1_SUCCESS;
     // free the stack and mark the context as unused
-    return result;
+    if (cid < 0 || cid > P1_MAXPROC-1)
+        return P1_INVALID_CID;
+    else if (cid == currentCid)
+        return P1_CONTEXT_IN_USE;
+    else {
+        free(*contexts[cid].stack);
+        contexts[cid].occupied = 0;
+        P3_FreePageTable(cid);
+
+        return result;
+    }
 }
 
 
@@ -102,7 +113,12 @@ P1EnableInterrupts(void)
 {
 	USLOSS_Console("6");
     // set the interrupt bit in the PSR
+    int psr= USLOSS_PsrGet();
+    int res = USLOSS_PsrSet(psr | USLOSS_PSR_CURRENT_INT);
+    assert(res == USLOSS_DEV_OK);
 }
+
+
 
 /*
  * Returns true if interrupts were enabled, false otherwise.
@@ -114,5 +130,13 @@ P1DisableInterrupts(void)
     int enabled = FALSE;
     // set enabled to TRUE if interrupts are already enabled
     // clear the interrupt bit in the PSR
+    int psr = USLOSS_PsrGet();
+    int res = USLOSS_PsrSet(psr & 0xd);
+    assert(res == USLOSS_DEV_OK);
+    if (psr & USLOSS_PSR_CURRENT_INT)
+        enabled = TRUE;
+    
     return enabled;
 }
+
+
