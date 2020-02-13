@@ -64,9 +64,9 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	i = 0;
 	while (contexts[i].occupied == 1) {
 		i++;
-		if (i > P1_MAXPROC){
+		if (i > P1_MAXPROC-1){
 			result = P1_TOO_MANY_CONTEXTS;
-			break;
+			return result;
 		}
 	 }
 	USLOSS_Console("%d", i);
@@ -102,7 +102,7 @@ int P1ContextSwitch(int cid) {
     }
 
     int result = P1_SUCCESS;
-	if (cid < 0 || cid > P1_MAXPROC - 1){
+	if (cid < 0 || cid > P1_MAXPROC - 1 || !contexts[cid].occupied){
 		return P1_INVALID_CID;
 	}
 
@@ -131,7 +131,7 @@ int P1ContextFree(int cid) {
     
     int result = P1_SUCCESS;
     // free the stack and mark the context as unused
-    if (cid < 0 || cid > P1_MAXPROC-1)
+    if (cid < 0 || cid > P1_MAXPROC-1 || !contexts[cid].occupied)
         return P1_INVALID_CID;
     else if (cid == currentCid)
         return P1_CONTEXT_IN_USE;
