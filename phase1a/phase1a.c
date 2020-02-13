@@ -34,7 +34,7 @@ void P1ContextInit(void)
 {
     //checking if function was called in kernel mode
     int psr = USLOSS_PsrGet();
-    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+    if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
         USLOSS_Halt(0);
         
@@ -52,7 +52,7 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     int result = P1_SUCCESS;
 
     int psr = USLOSS_PsrGet();
-    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+    if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
         USLOSS_Halt(0);    
     }
@@ -95,7 +95,7 @@ int P1ContextSwitch(int cid) {
 	USLOSS_Console("4");
 
     int psr = USLOSS_PsrGet();
-    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+    if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
         USLOSS_Halt(0);
         
@@ -123,7 +123,7 @@ int P1ContextFree(int cid) {
 	USLOSS_Console("5");
     
     int psr = USLOSS_PsrGet();
-    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+    if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
         USLOSS_Halt(0);
         
@@ -151,7 +151,7 @@ P1EnableInterrupts(void)
 	USLOSS_Console("6");
     
     int psr = USLOSS_PsrGet();
-    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+    if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
         USLOSS_Halt(0);
         
@@ -174,7 +174,7 @@ P1DisableInterrupts(void)
     
     
     int psr = USLOSS_PsrGet();
-    if (psr ^ USLOSS_PSR_CURRENT_MODE) {
+    if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
         USLOSS_Halt(0);
         
