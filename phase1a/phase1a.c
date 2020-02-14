@@ -1,3 +1,9 @@
+/*
+* Authors: Luke Cernetic || Joseph Corona
+* File: phase1a.c
+* Purpose: Simulates an operating system by managing USLOSS contexts.
+*/
+
 #include "phase1Int.h"
 #include "usloss.h"
 #include <stdlib.h>
@@ -7,14 +13,15 @@
 extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
 extern  void        P3_FreePageTable(int cid);
 
+
 typedef struct Context {
     void            (*startFunc)(void *);
     void            *startArg;
     USLOSS_Context  context;
 	int 			occupied;
 	char			**stack;
-    // you'll need more stuff here
 } Context;
+
 
 static Context   contexts[P1_MAXPROC];
 int i = 0;
@@ -30,6 +37,9 @@ static void launch(void)
     contexts[currentCid].startFunc(contexts[currentCid].startArg);
 }
 
+/*
+* Sets up the array of contexts by setting all of the occupied values to 0.
+*/
 void P1ContextInit(void)
 {
     //checking if function was called in kernel mode
@@ -40,23 +50,26 @@ void P1ContextInit(void)
         
     }
 
-    // initialize contexts
-
+    // initialize contexts as not occupied
 	for (i = 0; i < P1_MAXPROC; i++){
 		contexts[i].occupied = 0;
 	}
 
 }
 
+/*
+* Creates a context and puts it in an open slot of the contexts array.
+*/
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
-    int result = P1_SUCCESS;
 
+	//checking if function was called in kernel mode
     int psr = USLOSS_PsrGet();
     if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
         USLOSS_Halt(0);    
     }
 
+	//checking if stack size is too small
 	if (stacksize < USLOSS_MIN_STACK){
 		return P1_INVALID_STACK;
 	}
@@ -65,17 +78,14 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	while (contexts[i].occupied == 1) {
 		i++;
 		if (i > P1_MAXPROC-1){
-			result = P1_TOO_MANY_CONTEXTS;
-			return result;
+			return P1_TOO_MANY_CONTEXTS;
 		}
 	 }
-	USLOSS_Console("%d", i);
 	*cid = i;
 	contexts[i].occupied = 1;
 
 	char *tempStack = malloc(sizeof(char) *stacksize);
 
-	USLOSS_Console("%d", i);
 	USLOSS_ContextInit(&contexts[i].context, tempStack, stacksize,
 					   P3_AllocatePageTable(i), &launch);
 
@@ -83,17 +93,17 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	contexts[i].startFunc = func;
 	contexts[i].startArg = arg;
     contexts[i].stack = &tempStack;
-	//currentCid = *cid;
 
-	
-	// find a free context and initialize it
-    // allocate the stack, specify the startFunc, etc.
-    return result;
+    return P1_SUCCESS;
 }
 
+/*
+* Switches the current context to the context at the location given by the cid
+* parameter.
+*/
 int P1ContextSwitch(int cid) {
-	USLOSS_Console("4");
 
+	//checking if function was called in kernel mode
     int psr = USLOSS_PsrGet();
     if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
@@ -101,26 +111,30 @@ int P1ContextSwitch(int cid) {
         
     }
 
-    int result = P1_SUCCESS;
+	//returns P1_INVALID_CID if cid is not occupied or is too big or too small.
 	if (cid < 0 || cid > P1_MAXPROC - 1 || !contexts[cid].occupied){
 		return P1_INVALID_CID;
 	}
 
-    if (currentCid < 0 || currentCid > P1_MAXPROC-1) {
+	//if the current cid is not valid, switch from null context.
+    if (currentCid < 0 || currentCid > P1_MAXPROC - 1) {
         currentCid = cid;
         USLOSS_ContextSwitch(NULL, &contexts[cid].context);
-    } else {
+    } 
+	//switch to specified context
+	else {
         int tempCur = currentCid;
         currentCid = cid;
         USLOSS_ContextSwitch(
             &contexts[tempCur].context, &contexts[cid].context);
     }
-    // switch to the specified context
-    return result;
+    return P1_SUCCESS;
 }
 
+/*
+* Frees all allocated space (the stack) and sets the current context occupied to 0.
+*/
 int P1ContextFree(int cid) {
-	USLOSS_Console("5");
     
     int psr = USLOSS_PsrGet();
     if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
@@ -129,7 +143,6 @@ int P1ContextFree(int cid) {
         
     }
     
-    int result = P1_SUCCESS;
     // free the stack and mark the context as unused
     if (cid < 0 || cid > P1_MAXPROC-1 || !contexts[cid].occupied)
         return P1_INVALID_CID;
@@ -140,16 +153,14 @@ int P1ContextFree(int cid) {
         contexts[cid].occupied = 0;
         P3_FreePageTable(cid);
 
-        return result;
+        return P1_SUCCESS;
     }
 }
 
 
 void 
-P1EnableInterrupts(void) 
-{
-	USLOSS_Console("6");
-    
+P1EnableInterrupts(void) {
+
     int psr = USLOSS_PsrGet();
     if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
@@ -162,17 +173,9 @@ P1EnableInterrupts(void)
     assert(res == USLOSS_DEV_OK);
 }
 
-
-
-/*
- * Returns true if interrupts were enabled, false otherwise.
- */
 int 
-P1DisableInterrupts(void) 
-{
-	USLOSS_Console("7");
-    
-    
+P1DisableInterrupts(void) {
+      
     int psr = USLOSS_PsrGet();
     if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
