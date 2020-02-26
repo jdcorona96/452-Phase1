@@ -95,7 +95,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     if (stacksize < USLOSS_MIN_STACK)
         return P1_INVALID_STACK;
     int i;
-    for (i =0; i < P1_MAXPROC; ++i) {
+    for (i = 0; i < P1_MAXPROC; ++i) {
         if (!strcmp(processTable[i].name, name))
             return P1_DUPLICATE_NAME;
     }
@@ -130,6 +130,14 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 
     // if this is the first process or this process's priority is higher than the 
     //    currently running process call P1Dispatch(FALSE)
+	
+	if (processTable[0].state == P1_STATE_FREE || 
+		priority < processTable[running].priority){
+
+			P1Dispatch(FALSE);
+		}
+
+
     // re-enable interrupts if they were previously enabled
     return result;
 }
@@ -176,24 +184,16 @@ P1SetState(int pid, P1_State state, int sid)
         }
     }
     
-    if (state == P1_STATE_READY) {
-        processTable[pid].state = state;
+    if (state == P1_STATE_READY ||
+		state == P1_STATE_RUNNING ||
+		state == P1_STATE_BLOCKED ||
+		state == P1_STATE_QUIT) {
+        
+		processTable[pid].state = state;
         return P1_SUCCESS;
-
-    } else if (state == P1_STATE_JOINING) {
-        processTable[pid].state = state;
-        return P1_SUCCESS;
-
-    } else if (state == P1_STATE_BLOCKED) {
-        processTable[pid].state = state;
-        // sid is the ID of the semaphore on which it is blocked
-        return P1_SUCCESS;
-
-    } else if (state == P1_STATE_QUIT) {
-        processTable[pid].state = state;
-        return P1_SUCCESS;
-
-    } else {
+    } 
+	
+	else {
         return P1_INVALID_STATE;
     }
 
