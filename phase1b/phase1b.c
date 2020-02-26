@@ -15,6 +15,7 @@ typedef struct PCB {
     char            name[P1_MAXNAME+1]; // process's name
     int             priority;           // process's priority
     P1_State        state;              // state of the PCB
+    int            (*func)(void*);
     
     // more fields for profInfo
     //int             sid;
@@ -30,6 +31,8 @@ typedef struct PCB {
 
 static int running = -1;
 static PCB processTable[P1_MAXPROC];   // the process table
+static int queue[P1_MAXPROC];
+
 
 int kernelMode(void) {
     int psr = USLOSS_PsrGet();
@@ -53,7 +56,8 @@ int invalidPid(int pid) {
 
 static void bLaunch(void * arg) {
     
-    P1_Quit(11);
+    int r = processTable[running].func(arg);
+    P1_Quit(r);
 }
 
 // start of function precesses ----------------------------------
@@ -63,6 +67,7 @@ void P1ProcInit(void)
     P1ContextInit();
     for (int i = 0; i < P1_MAXPROC; i++) {
         processTable[i].state = P1_STATE_FREE;
+        queue[i] = -1;
         // initialize the rest of the PCB
     }
     // initialize everything else
@@ -112,21 +117,33 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     if (!flag)
         return P1_TOO_MANY_PROCESSES;
 
+    
     // create a context using P1ContextCreate
-    P1ContextCreate(func, arg, stacksize, pid);
+    int ok = P1ContextCreate(&bLaunch, arg, stacksize, pid);
+    assert(ok == P1_SUCCESS);
     
     PCB *tempPCB = &processTable[*pid];
 
     // allocate and initialize PCB
     tempPCB->cid = *pid;
     tempPCB->cpuTime = 0;
-    tempPCB->name = name;
+    strcpy(tempPCB->name,name);
     tempPCB->priority = priority;
     tempPCB->state = P1_STATE_READY;
     tempPCB->parent = running;
     memset(tempPCB->children, 0, sizeof(tempPCB->children)); 
     tempPCB->numChildren = 0;
     tempPCB->status = 0;
+    tempPCB->func = func;
+    
+
+    //skiping queue
+    i = 0;
+    while (queue[i] != -1) {
+        ++i;
+    }
+
+    queue[i] = *pid;
 
     // if this is the first process or this process's priority is higher than the 
     //    currently running process call P1Dispatch(FALSE)
@@ -137,8 +154,11 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 			P1Dispatch(FALSE);
 		}
 
-
     // re-enable interrupts if they were previously enabled
+    if (prevInt)
+        P1EnableInterrupts();
+    
+    
     return result;
 }
 
@@ -206,6 +226,41 @@ void
 P1Dispatch(int rotate)
 {
     // select the highest-priority runnable process
+
+    int i = 0;
+    int highPrioPid = 0;
+    int flag = 0;
+    while (queue[i] != -1) {
+
+            if (processTable[queue[i]].state == P1_STATE_READY) {
+
+                if (processtable[queue[i]].priority < processTable[running].priority) {
+
+                    int r = P1ContextSwitch(queue[i]);
+                    assert(r == P1_SUCCESS);
+                }
+
+
+                if (rotate == TRUE) {
+                    if (queue[i] != running && processTable[queue[i]].priority == processTable[running].priority) {
+                        int r = P1ContextSwitch(queue[i]);
+                        assert(r == P1_SUCCESS);
+                    }
+                }
+
+                    flag = 1;
+            
+            }
+    }
+
+    if (!flag) {
+        USLOSS_Console("No runnable proccesses, halting.");
+        USLOSS_Halt(0);
+    }
+
+
+
+
     // call P1ContextSwitch to switch to that process
 }
 
