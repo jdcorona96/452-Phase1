@@ -22,6 +22,7 @@ typedef struct PCB {
     //int             tag;
     int             parent;
     int             children[P1_MAXPROC];
+	int				quitChildren[P1_MAXPROC];
     int             numChildren;
 
     // extra for P1_Quit
@@ -118,7 +119,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
         return P1_TOO_MANY_PROCESSES;
 
     
-    // create a context using P1ContextCreate
+    // create a co:ntext using P1ContextCreate
     int ok = P1ContextCreate(&bLaunch, arg, stacksize, pid);
     assert(ok == P1_SUCCESS);
     
@@ -137,7 +138,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     tempPCB->func = func;
     
 
-    //skiping queue
+    //skipping queue
     i = 0;
     while (queue[i] != -1) {
         ++i;
@@ -166,11 +167,67 @@ void
 P1_Quit(int status) 
 {
     // check for kernel mode
+	kernelMode();
+
     // disable interrupts
-    // remove from ready queue, set status to P1_STATE_QUIT
+	int prevInt = P1DisableInterrupts();
+
+    // remove from ready queue
+	int newQueue[P1_MAXPROC];
+	int i;
+	int j;
+	while (queue[i] != -1){
+		if (queue[i] != running){
+			newQueue[j] = queue[i];
+			i++;
+			j++;
+		}
+		else {
+			i++;
+		}
+	}
+
+	while (j < P1_MAXPROC) {
+		newQueue[j] = -1;
+		j++;
+	}
+
+	//set status to P1_STATE_QUIT 
+	//(I think they mean set state to that and set status to parameter)
+
+	processTable[running].status = status;
+	int r = P1SetState(running, P1_STATE_QUIT, 0);
+	assert(r = P1_SUCCESS);
+
     // if first process verify it doesn't have children, otherwise give children to first process
+
+	if (running == 0 && processTable[running].numChildren != 0) { 
+		USLOSS_Console("First process quitting with children, halting.");
+        USLOSS_Halt(1);
+	}
+	else if (running != 0){
+		for (i = 0; i < P1_MAXPROC; i++){
+			if (processTable[running].children[i] == 1){
+				processTable[0].children[i] = 1;
+			}
+		}
+	}
+
+	int parent = processTable[running].parent;
+
     // add ourself to list of our parent's children that have quit
+	processTable[parent].quitChildren[running] = 1;
+
     // if parent is in state P1_STATE_JOINING set its state to P1_STATE_READY
+	if (processTable[parent].state == P1_STATE_JOINING) {
+		int r = P1SetState(parent, P1_STATE_READY, 0);
+		assert(r = P1_SUCCESS);
+	}
+
+	if (prevInt)
+        P1EnableInterrupts();
+
+
     P1Dispatch(FALSE);
     // should never get here
     assert(0);
@@ -210,7 +267,6 @@ P1SetState(int pid, P1_State state, int sid)
 		state == P1_STATE_QUIT) {
         
 		processTable[pid].state = state;
-        return P1_SUCCESS;
     } 
 	
 	else {
@@ -228,13 +284,12 @@ P1Dispatch(int rotate)
     // select the highest-priority runnable process
 
     int i = 0;
-    int highPrioPid = 0;
     int flag = 0;
     while (queue[i] != -1) {
 
             if (processTable[queue[i]].state == P1_STATE_READY) {
 
-                if (processtable[queue[i]].priority < processTable[running].priority) {
+                if (processTable[queue[i]].priority < processTable[running].priority) {
 
                     int r = P1ContextSwitch(queue[i]);
                     assert(r == P1_SUCCESS);
@@ -248,8 +303,7 @@ P1Dispatch(int rotate)
                     }
                 }
 
-                    flag = 1;
-            
+                flag = 1;
             }
     }
 
