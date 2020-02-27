@@ -61,7 +61,7 @@ static void bLaunch(void * arg) {
     P1_Quit(r);
 }
 
-// start of function precesses ----------------------------------
+// start of function processes ----------------------------------
 
 void P1ProcInit(void)
 {
@@ -119,7 +119,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
         return P1_TOO_MANY_PROCESSES;
 
     
-    // create a co:ntext using P1ContextCreate
+    // create a context using P1ContextCreate
     int ok = P1ContextCreate(&bLaunch, arg, stacksize, pid);
     assert(ok == P1_SUCCESS);
     
@@ -154,7 +154,6 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 
 			P1Dispatch(FALSE);
 		}
-
     // re-enable interrupts if they were previously enabled
     if (prevInt)
         P1EnableInterrupts();
@@ -193,11 +192,10 @@ P1_Quit(int status)
 	}
 
 	//set status to P1_STATE_QUIT 
-	//(I think they mean set state to that and set status to parameter)
+	//(I think they mean set state to P1_STATE_QUIT and set status to parameter)
 
 	processTable[running].status = status;
-	int r = P1SetState(running, P1_STATE_QUIT, 0);
-	assert(r = P1_SUCCESS);
+	processTable[running].state = P1_STATE_QUIT;
 
     // if first process verify it doesn't have children, otherwise give children to first process
 
@@ -220,8 +218,7 @@ P1_Quit(int status)
 
     // if parent is in state P1_STATE_JOINING set its state to P1_STATE_READY
 	if (processTable[parent].state == P1_STATE_JOINING) {
-		int r = P1SetState(parent, P1_STATE_READY, 0);
-		assert(r = P1_SUCCESS);
+		processTable[parent].state = P1_STATE_READY;
 	}
 
 	if (prevInt)
@@ -262,7 +259,7 @@ P1SetState(int pid, P1_State state, int sid)
     }
     
     if (state == P1_STATE_READY ||
-		state == P1_STATE_RUNNING ||
+		state == P1_STATE_JOINING ||
 		state == P1_STATE_BLOCKED ||
 		state == P1_STATE_QUIT) {
         
@@ -290,7 +287,10 @@ P1Dispatch(int rotate)
             if (processTable[queue[i]].state == P1_STATE_READY) {
 
                 if (processTable[queue[i]].priority < processTable[running].priority) {
-
+					
+					processTable[running].state = P1_STATE_READY;
+					running = queue[i];
+					processTable[queue[i]].state = P1_STATE_RUNNING;
                     int r = P1ContextSwitch(queue[i]);
                     assert(r == P1_SUCCESS);
                 }
@@ -298,6 +298,9 @@ P1Dispatch(int rotate)
 
                 if (rotate == TRUE) {
                     if (queue[i] != running && processTable[queue[i]].priority == processTable[running].priority) {
+						processTable[running].state = P1_STATE_READY;
+						running = queue[i];
+						processTable[queue[i]].state = P1_STATE_RUNNING;
                         int r = P1ContextSwitch(queue[i]);
                         assert(r == P1_SUCCESS);
                     }
