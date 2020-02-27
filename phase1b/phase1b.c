@@ -19,7 +19,7 @@ typedef struct PCB {
     
     // more fields for profInfo
     //int             sid;
-    //int             tag;
+    int             tag;
     int             parent;
     int             children[P1_MAXPROC];
 	int				quitChildren[P1_MAXPROC];
@@ -90,7 +90,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     int prevInt = P1DisableInterrupts();
     
     // check all parameters
-    if (tag != 0 || tag != 1)
+    if (tag != 0 && tag != 1)
         return P1_INVALID_TAG;
     if (priority < 1 || priority > 6) {
         return P1_INVALID_PRIORITY;
@@ -127,6 +127,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 
     // allocate and initialize PCB
     tempPCB->cid = *pid;
+    tempPCB->tag = tag;
     tempPCB->cpuTime = 0;
     strcpy(tempPCB->name,name);
     tempPCB->priority = priority;
@@ -232,11 +233,57 @@ P1_Quit(int status)
 
 
 int 
-P1GetChildStatus(int tag, int *cpid, int *status) 
+P1GetChildStatus(int tag, int *pid, int *status) 
 {
-    int result = P1_SUCCESS;
-    // do stuff here
-    return result;
+    kernelMode();
+
+    //current running process
+    PCB *cur = &processTable[running]; 
+    
+    //checking for valid tags
+    if (tag != 0 && tag != 1)
+        return P1_INVALID_TAG;
+
+    //check for children count
+    if (cur->numChildren == 0)
+        return P1_NO_CHILDREN;
+
+    int i;
+    int no_quit = 0; //flag for checking type of return
+    for (i = 0; i < P1_MAXPROC; ++i) {
+
+        //getting the child
+        if(cur->children[i]) {
+
+            PCB *child = &processTable[i];
+            if (child->tag == tag) {
+                
+                if (child->state == P1_STATE_QUIT) {
+
+                    //child's tag match and state is quit
+                    *pid = i;
+                    *status = child->status;
+                    P1ContextFree(i);
+                    return P1_SUCCESS;
+
+                } else {
+                    /* if we have child with matching tag but its
+                     * state is not QUIT, it means we have a child
+                     * that has not quit, AKA P1_NO_QUIT
+                    */
+                    no_quit = 1;
+                }
+            }
+        }
+    }
+
+    // at this point we have only unsuccesful returns
+
+    if (no_quit)
+        return P1_NO_QUIT;
+    
+    return P1_NO_CHILDREN;
+
 }
 
 int
