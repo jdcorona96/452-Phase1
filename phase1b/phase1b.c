@@ -30,9 +30,16 @@ typedef struct PCB {
 
 } PCB;
 
+struct Node {
+	int data;
+	struct Node* next;
+};
+
+int i;
+struct Node* head = NULL;
+struct Node* currNode;
 static int running = -1;
 static PCB processTable[P1_MAXPROC];   // the process table
-static int queue[P1_MAXPROC];
 
 
 int kernelMode(void) {
@@ -66,10 +73,10 @@ static void bLaunch(void * arg) {
 void P1ProcInit(void)
 {
     P1ContextInit();
-    for (int i = 0; i < P1_MAXPROC; i++) {
+    for (i = 0; i < P1_MAXPROC; i++) {
         processTable[i].state = P1_STATE_FREE;
-        queue[i] = -1;
-        // initialize the rest of the PCB
+		
+		// initialize the rest of the PCB
     }
     // initialize everything else
 
@@ -100,7 +107,6 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
         return P1_INVALID_PRIORITY;
     if (stacksize < USLOSS_MIN_STACK)
         return P1_INVALID_STACK;
-    int i;
     for (i = 0; i < P1_MAXPROC; ++i) {
         if (!strcmp(processTable[i].name, name))
             return P1_DUPLICATE_NAME;
@@ -120,8 +126,8 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 
     
     // create a context using P1ContextCreate
-    int ok = P1ContextCreate(&bLaunch, arg, stacksize, pid);
-    assert(ok == P1_SUCCESS);
+    int r = P1ContextCreate(&bLaunch, arg, stacksize, pid);
+    assert(r == P1_SUCCESS);
     
     PCB *tempPCB = &processTable[*pid];
 
@@ -139,20 +145,37 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     tempPCB->func = func;
     
 
-    //skipping queue
-    i = 0;
-    while (queue[i] != -1) {
-        ++i;
-    }
+    //add new process to ready queue
+   	struct Node* currNode = head;
 
-    queue[i] = *pid;
+	if (currNode == NULL) {
+		currNode = (struct Node*)malloc(sizeof(struct Node));
+		currNode->data = *pid;
+		head = currNode;
+	}
+	else {
+    	while (currNode->next != NULL) {
+        	currNode = currNode->next;
+    	}
+		struct Node* temp = (struct Node*)malloc(sizeof(struct Node));
+		temp->data = *pid;
+		currNode->next = temp;
+	}
+	
 
     // if this is the first process or this process's priority is higher than the 
     //    currently running process call P1Dispatch(FALSE)
-	
-	if (processTable[0].state == P1_STATE_FREE || 
-		priority < processTable[running].priority){
+	//USLOSS_Console("\n\n%s\n\n", processTable[0].name);
 
+	currNode = head;
+	int runningLength = 0;
+	while (currNode != NULL){
+		runningLength++;
+		currNode = currNode->next;
+	}
+
+
+	if ( runningLength == 1 || priority < processTable[running].priority){
 			P1Dispatch(FALSE);
 		}
     // re-enable interrupts if they were previously enabled
@@ -173,24 +196,23 @@ P1_Quit(int status)
 	int prevInt = P1DisableInterrupts();
 
     // remove from ready queue
-	int newQueue[P1_MAXPROC];
-	int i;
-	int j;
-	while (queue[i] != -1){
-		if (queue[i] != running){
-			newQueue[j] = queue[i];
-			i++;
-			j++;
-		}
-		else {
-			i++;
+	if (head->next == NULL){
+		head = NULL;
+	}
+	else {
+		currNode = head->next;
+		struct Node* prevNode = head;
+
+		while (currNode->next != NULL){
+			if (currNode->data == running) {
+				prevNode->next = currNode->next;
+				break;
+			}
+			prevNode = currNode;
+			currNode = currNode->next;
 		}
 	}
 
-	while (j < P1_MAXPROC) {
-		newQueue[j] = -1;
-		j++;
-	}
 
 	//set status to P1_STATE_QUIT 
 	//(I think they mean set state to P1_STATE_QUIT and set status to parameter)
@@ -248,7 +270,6 @@ P1GetChildStatus(int tag, int *pid, int *status)
     if (cur->numChildren == 0)
         return P1_NO_CHILDREN;
 
-    int i;
     int no_quit = 0; //flag for checking type of return
     for (i = 0; i < P1_MAXPROC; ++i) {
 
@@ -263,7 +284,8 @@ P1GetChildStatus(int tag, int *pid, int *status)
                     //child's tag match and state is quit
                     *pid = i;
                     *status = child->status;
-                    P1ContextFree(i);
+                    int r = P1ContextFree(i);
+					assert(r = P1_SUCCESS);
                     return P1_SUCCESS;
 
                 } else {
@@ -295,7 +317,6 @@ P1SetState(int pid, P1_State state, int sid)
         return P1_INVALID_PID;
 
     if (processTable[pid].state == P1_STATE_JOINING) {
-        int i;
         for (i = 0; i < P1_MAXPROC; ++i) {
             int child = processTable[pid].children[i];
             if (child) {
@@ -326,35 +347,40 @@ void
 P1Dispatch(int rotate)
 {
     // select the highest-priority runnable process
-
-    int i = 0;
     int flag = 0;
-    while (queue[i] != -1) {
 
-            if (processTable[queue[i]].state == P1_STATE_READY) {
+	currNode = head;
+	int runningLength = 0;
+	while (currNode != NULL){
+		runningLength++;
+		currNode = currNode->next;
+	}
 
-                if (processTable[queue[i]].priority < processTable[running].priority) {
+	currNode = head;
+    while (currNode != NULL) {
+        if (processTable[currNode->data].state == P1_STATE_READY) {
+            if (processTable[currNode->data].priority < processTable[running].priority ||
+				runningLength == 1) {
 					
+				processTable[running].state = P1_STATE_READY;
+				running = currNode->data;
+				processTable[currNode->data].state = P1_STATE_RUNNING;
+                int r = P1ContextSwitch(currNode->data);
+                assert(r == P1_SUCCESS);
+            }
+
+            if (rotate == TRUE) {
+                if (currNode->data != running && processTable[currNode->data].priority == processTable[running].priority) {
 					processTable[running].state = P1_STATE_READY;
-					running = queue[i];
-					processTable[queue[i]].state = P1_STATE_RUNNING;
-                    int r = P1ContextSwitch(queue[i]);
+					running = currNode->data;
+					processTable[currNode->data].state = P1_STATE_RUNNING;
+                    int r = P1ContextSwitch(currNode->data);
                     assert(r == P1_SUCCESS);
                 }
-
-
-                if (rotate == TRUE) {
-                    if (queue[i] != running && processTable[queue[i]].priority == processTable[running].priority) {
-						processTable[running].state = P1_STATE_READY;
-						running = queue[i];
-						processTable[queue[i]].state = P1_STATE_RUNNING;
-                        int r = P1ContextSwitch(queue[i]);
-                        assert(r == P1_SUCCESS);
-                    }
-                }
-
-                flag = 1;
             }
+            flag = 1;
+        }
+		currNode = currNode->next;
     }
 
     if (!flag) {
@@ -386,7 +412,7 @@ P1_GetProcInfo(int pid, P1_ProcInfo *info)
     //info->tag         = process->tag;
     info->cpu         = process->cpuTime;
     info->parent      = process->parent;
-    for (int i = 0; i < P1_MAXPROC; ++i) {
+    for (i = 0; i < P1_MAXPROC; ++i) {
         info->children[i] = process->children[i];
     }  
 
