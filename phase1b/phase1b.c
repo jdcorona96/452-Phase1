@@ -230,10 +230,13 @@ P1_Quit(int status)
 		for (i = 0; i < P1_MAXPROC; i++){
 			if (processTable[running].children[i] == 1){
 				processTable[0].children[i] = 1;
+                processTable[i].parent = 0;
 			}
 		}
 	}
 
+
+    /*-----------------------------------------------
 	int parent = processTable[running].parent;
 
     // add ourself to list of our parent's children that have quit
@@ -247,6 +250,7 @@ P1_Quit(int status)
 	if (prevInt)
         P1EnableInterrupts();
 
+    */
 
     P1Dispatch(FALSE);
     // should never get here
