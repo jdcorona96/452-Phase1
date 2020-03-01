@@ -365,10 +365,17 @@ P1Dispatch(int rotate)
     struct Node* hpper = head;
 
 	//Finds hpp and hpper
-	currNode = head->next;
+
+	if (head == NULL){
+		currNode = head;
+	}
+	else {
+		currNode = head->next;
+		flag = 1;
+	}
     while (currNode != NULL) {
         if (processTable[currNode->data].state == P1_STATE_READY) {
-			if(processTable[currNode->data].priority < processTable[hpp->data].priority){
+			if(processTable[currNode->data].priority < processTable[hpp->data].priority){	
 				
 				hpp = currNode;
 			}
@@ -381,6 +388,12 @@ P1Dispatch(int rotate)
 		currNode = currNode->next;
 		flag = 1;
 	}
+
+	// halt if no runnable processes are found.
+    if (flag == 0) {
+        USLOSS_Console("No runnable processes, halting.");
+        USLOSS_Halt(0);
+    }
 
 	// switch contexts if rotate is false and either first process or if there
 	// is a higher priority process than what is currently running.
@@ -398,12 +411,6 @@ P1Dispatch(int rotate)
         int r = P1ContextSwitch(hpper->data);
         assert(r == P1_SUCCESS);
 	}
-
-	// halt if no runnable processes are found.
-    if (!flag) {
-        USLOSS_Console("No runnable proccesses, halting.");
-        USLOSS_Halt(0);
-    }
 }
 
 int
