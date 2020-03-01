@@ -151,6 +151,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	if (currNode == NULL) {
 		currNode = (struct Node*)malloc(sizeof(struct Node));
 		currNode->data = *pid;
+		currNode->next = NULL;
 		head = currNode;
 	}
 	else {
@@ -159,6 +160,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     	}
 		struct Node* temp = (struct Node*)malloc(sizeof(struct Node));
 		temp->data = *pid;
+		temp->next = NULL;
 		currNode->next = temp;
 	}
 	
@@ -194,6 +196,10 @@ P1_Quit(int status)
 
     // disable interrupts
 	int prevInt = P1DisableInterrupts();
+
+	//How am I supposed to use prevInt?!
+	prevInt++;
+	
 
     // remove from ready queue
 	if (head->next == NULL){
@@ -302,7 +308,6 @@ P1GetChildStatus(int tag, int *pid, int *status)
             }
         }
     }
-
     // at this point we have only unsuccesful returns
 
     if (no_quit)
@@ -352,64 +357,53 @@ P1Dispatch(int rotate)
 {
     // select the highest-priority runnable process
     int flag = 0;
+	
+	//highest priority process
+    struct Node* hpp = head;
 
-	currNode = head;
-	int runningLength = 0;
+	//highest priority process (excluding running)
+    struct Node* hpper = head;
 
-    // should be removed 
-	while (currNode != NULL){
-		runningLength++;
-		currNode = currNode->next;
-	}
-    //--------------------------------
-
-
-	currNode = head;
-
-
-    // find the lowest priority and also the first same priority from the current one.
-    // change thi while loop to fill criteria
+	//Finds hpp and hpper
+	currNode = head->next;
     while (currNode != NULL) {
         if (processTable[currNode->data].state == P1_STATE_READY) {
-            if (processTable[currNode->data].priority < processTable[running].priority ||
-				/*remove*/runningLength == 1) {
-					
-
-				//processTable[running].state = P1_STATE_READY;
-                if (processTable[running].state == P1_STATE_RUNNING)
-                    processTable[running].state == P1_STATE_READY;
-				running = currNode->data;
-				processTable[currNode->data].state = P1_STATE_RUNNING;
-                int r = P1ContextSwitch(currNode->data);
-                assert(r == P1_SUCCESS);
-                return P1_SUCCESS;
-            }
-
-            if (rotate == TRUE) {
-                if (currNode->data != running && 
-                        processTable[currNode->data].priority == processTable[running].priority) {
-					processTable[running].state = P1_STATE_READY;
-					running = currNode->data;
-					processTable[currNode->data].state = P1_STATE_RUNNING;
-                    int r = P1ContextSwitch(currNode->data);
-                    assert(r == P1_SUCCESS);
-                    return P1_SUCCESS;
-                }
-            }
-            flag = 1;
-        }
+			if(processTable[currNode->data].priority < processTable[hpp->data].priority){
+				
+				hpp = currNode;
+			}
+			if (currNode->data != running &&
+				processTable[currNode->data].priority < processTable[hpper->data].priority) {
+				
+				hpper = currNode;
+			}
+		}
 		currNode = currNode->next;
-    }
+		flag = 1;
+	}
 
+	// switch contexts if rotate is false and either first process or if there
+	// is a higher priority process than what is currently running.
+	if ((running == -1 || hpp->data != running) &&  rotate == FALSE ) {
+		running = hpp->data;
+		processTable[hpp->data].state = P1_STATE_RUNNING;
+        int r = P1ContextSwitch(hpp->data);
+        assert(r == P1_SUCCESS);
+	}
+
+	// if rotate is true switch process to next highest priority
+	if (rotate == TRUE) {
+		running = hpper->data;
+		processTable[hpper->data].state = P1_STATE_RUNNING;
+        int r = P1ContextSwitch(hpper->data);
+        assert(r == P1_SUCCESS);
+	}
+
+	// halt if no runnable processes are found.
     if (!flag) {
         USLOSS_Console("No runnable proccesses, halting.");
         USLOSS_Halt(0);
     }
-
-
-
-
-    // call P1ContextSwitch to switch to that process
 }
 
 int
