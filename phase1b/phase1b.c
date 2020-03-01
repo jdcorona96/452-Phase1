@@ -22,7 +22,7 @@ typedef struct PCB {
     int             tag;
     int             parent;
     int             children[P1_MAXPROC];
-	int				quitChildren[P1_MAXPROC];
+	//int				quitChildren[P1_MAXPROC];
     int             numChildren;
 
     // extra for P1_Quit
@@ -355,31 +355,45 @@ P1Dispatch(int rotate)
 
 	currNode = head;
 	int runningLength = 0;
+
+    // should be removed 
 	while (currNode != NULL){
 		runningLength++;
 		currNode = currNode->next;
 	}
+    //--------------------------------
+
 
 	currNode = head;
+
+
+    // find the lowest priority and also the first same priority from the current one.
+    // change thi while loop to fill criteria
     while (currNode != NULL) {
         if (processTable[currNode->data].state == P1_STATE_READY) {
             if (processTable[currNode->data].priority < processTable[running].priority ||
-				runningLength == 1) {
+				/*remove*/runningLength == 1) {
 					
-				processTable[running].state = P1_STATE_READY;
+
+				//processTable[running].state = P1_STATE_READY;
+                if (processTable[running].state == P1_STATE_RUNNING)
+                    processTable[running].state == P1_STATE_READY;
 				running = currNode->data;
 				processTable[currNode->data].state = P1_STATE_RUNNING;
                 int r = P1ContextSwitch(currNode->data);
                 assert(r == P1_SUCCESS);
+                return P1_SUCCESS;
             }
 
             if (rotate == TRUE) {
-                if (currNode->data != running && processTable[currNode->data].priority == processTable[running].priority) {
+                if (currNode->data != running && 
+                        processTable[currNode->data].priority == processTable[running].priority) {
 					processTable[running].state = P1_STATE_READY;
 					running = currNode->data;
 					processTable[currNode->data].state = P1_STATE_RUNNING;
                     int r = P1ContextSwitch(currNode->data);
                     assert(r == P1_SUCCESS);
+                    return P1_SUCCESS;
                 }
             }
             flag = 1;
@@ -413,7 +427,7 @@ P1_GetProcInfo(int pid, P1_ProcInfo *info)
     info->state       = process->state;
     //info->sid         = process->sid;
     info->priority    = process->priority;
-    //info->tag         = process->tag;
+    info->tag         = process->tag;
     info->cpu         = process->cpuTime;
     info->parent      = process->parent;
     for (i = 0; i < P1_MAXPROC; ++i) {
