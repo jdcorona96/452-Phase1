@@ -72,7 +72,9 @@ static void bLaunch(void * arg) {
 
 void P1ProcInit(void)
 {
+	kernelMode();
     P1ContextInit();
+
     for (i = 0; i < P1_MAXPROC; i++) {
         processTable[i].state = P1_STATE_FREE;
 		
@@ -166,24 +168,14 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	
 
     // if this is the first process or this process's priority is higher than the 
-    //    currently running process call P1Dispatch(FALSE)
-	//USLOSS_Console("\n\n%s\n\n", processTable[0].name);
+    // currently running process call P1Dispatch(FALSE)
 
-	currNode = head;
-	int runningLength = 0;
-	while (currNode != NULL){
-		runningLength++;
-		currNode = currNode->next;
-	}
-
-
-	if ( runningLength == 1 || priority < processTable[running].priority){
+	if ( running == -1 || priority < processTable[running].priority){
 			P1Dispatch(FALSE);
 		}
     // re-enable interrupts if they were previously enabled
     if (prevInt)
         P1EnableInterrupts();
-    
     
     return result;
 }
@@ -267,18 +259,20 @@ P1_Quit(int status)
 int 
 P1GetChildStatus(int tag, int *pid, int *status) 
 {
+
     kernelMode();
 
     //current running process
     PCB *cur = &processTable[running]; 
     
     //checking for valid tags
-    if (tag != 0 && tag != 1)
+    if (tag != 0 && tag != 1) {
         return P1_INVALID_TAG;
-
+	}	
     //check for children count
-    if (cur->numChildren == 0)
+    if (cur->numChildren == 0) {
         return P1_NO_CHILDREN;
+	}
 
     int no_quit = 0; //flag for checking type of return
     for (i = 0; i < P1_MAXPROC; ++i) {
@@ -310,9 +304,10 @@ P1GetChildStatus(int tag, int *pid, int *status)
     }
     // at this point we have only unsuccesful returns
 
-    if (no_quit)
+    if (no_quit){
         return P1_NO_QUIT;
-    
+	}
+	
     return P1_NO_CHILDREN;
 
 }
