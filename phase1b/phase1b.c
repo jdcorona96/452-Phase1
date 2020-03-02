@@ -320,6 +320,7 @@ P1GetChildStatus(int tag, int *pid, int *status)
                     *pid = i;
                     *status = child->status;
                     int r = P1ContextFree(i);
+                    cur->children[i] = 0;
                     child->state = P1_STATE_FREE;
 					assert(r == P1_SUCCESS);
                     return P1_SUCCESS;
