@@ -16,8 +16,8 @@ Output(void *arg)
 void
 startup(int argc, char **argv)
 {
-    int pid;
     int rc;
+    int pid;
     P1ProcInit();
     USLOSS_Console("startup\n");
     rc = P1_Fork("Hello", Output, "Hello World!\n", USLOSS_MIN_STACK, 1, 0, &pid);
