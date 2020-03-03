@@ -42,37 +42,32 @@ static int timer = 0; // timer used to measure time between processes
 static int running = -1;
 static PCB processTable[P1_MAXPROC];   // the process table
 
-//void clock_handler(int type, void *arg) {
-//    timer++;
-//}
 
-// prepares time for the process and 
-// adds the time that previous process ran
-void setTimer() {
+// prepares time for the process and adds the time that previous process ran
+void setTimer(){
+	int prevTimer = timer;
+	int status = USLOSS_DeviceInput(USLOSS_CLOCK_DEV, 0, &timer);
+	if(status != USLOSS_DEV_OK){
+		USLOSS_Halt(status);
+	}
 
-    int prevTimer = timer;
-    int status = USLOSS_DeviceInput(USLOSS_CLOCK_DEV, 0, &timer);
-    if (status != USLOSS_DEV_OK)
-        USLOSS_Halt(status);
-    
-    if (running != -1) {
-        PCB *process = &processTable[running];
-        process->cpuTime += timer - prevTimer;
-    }
+	if (running != -1){
+		PCB *process = &processTable[running];
+		process->cpuTime += timer - prevTimer;
+	}
 }
 
 
-
-int kernelMode(void) {
+void kernelMode(void) {
     int psr = USLOSS_PsrGet();
     if (!(psr & USLOSS_PSR_CURRENT_MODE)) {
         USLOSS_IllegalInstruction();
-        P1_Quit(1024);
-        return -1;
     }
 
-    return 0;
+}
 
+void illegalIntHandler(int type, void *arg){
+	P1_Quit(1024);
 }
 
 int invalidPid(int pid) {
@@ -93,19 +88,16 @@ static void bLaunch(void * arg) {
 
 void P1ProcInit(void)
 {
+	USLOSS_IntVec[USLOSS_ILLEGAL_INT] = illegalIntHandler;
 	kernelMode();
     P1ContextInit();
-    //USLOSS_IntVec[USLOSS_CLOCK_INT] = clock_handler;
+
     for (i = 0; i < P1_MAXPROC; i++) {
         processTable[i].state = P1_STATE_FREE;
 		
 		// initialize the rest of the PCB
     }
     // initialize everything else
-    //head = (struct Node*) malloc(sizeof(struct Node));
-    //head->data = -1;
-    //head->next = NULL;
-
 
 }
 
@@ -122,24 +114,28 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 
     // disable interrupts
     int prevInt = P1DisableInterrupts();
-    
+
     // check all parameters
     if (tag != 0 && tag != 1)
         return P1_INVALID_TAG;
     if (priority < 1 || priority > 6) {
         return P1_INVALID_PRIORITY;
     } 
+
     if (processTable[0].state != P1_STATE_FREE &&
         priority == 6)
         return P1_INVALID_PRIORITY;
     if (stacksize < USLOSS_MIN_STACK)
         return P1_INVALID_STACK;
-    if (name == NULL)
+	
+    if (name == NULL){
         return P1_NAME_IS_NULL;
+	}
     for (i = 0; i < P1_MAXPROC; ++i) {
         if (!strcmp(processTable[i].name, name))
             return P1_DUPLICATE_NAME;
     }
+
     if (strlen(name) > P1_MAXNAME)
         return P1_NAME_TOO_LONG;
     int flag = 0;
@@ -151,7 +147,11 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     if (!flag)
         return P1_TOO_MANY_PROCESSES;
 
-    
+	//set forked process as child
+    processTable[running].children[*pid] = 1;
+	processTable[running].numChildren++;
+
+
     // create a context using P1ContextCreate
     int r = P1ContextCreate(&bLaunch, arg, stacksize, pid);
     assert(r == P1_SUCCESS);
@@ -170,12 +170,6 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     tempPCB->numChildren = 0;
     tempPCB->status = 0;
     tempPCB->func = func;
-
-    //setting the child of the running process to this process
-    PCB *parent = &processTable[running];
-    parent->children[*pid] = 1;
-    parent->numChildren++;
-
     
 
     //add new process to ready queue
@@ -243,8 +237,7 @@ P1_Quit(int status)
 	}
 
 
-	//set status to P1_STATE_QUIT 
-	//(I think they mean set state to P1_STATE_QUIT and set status to parameter)
+	//set status to status and state to P1_STATE_QUIT 
 
 	processTable[running].status = status;
 	processTable[running].state = P1_STATE_QUIT;
@@ -310,18 +303,19 @@ P1GetChildStatus(int tag, int *pid, int *status)
 
         //getting the child
         if(cur->children[i]) {
-
+			USLOSS_Console("1");
             PCB *child = &processTable[i];
             if (child->tag == tag) {
-                
+                USLOSS_Console("2");
+
                 if (child->state == P1_STATE_QUIT) {
+					USLOSS_Console("3\n");
 
                     //child's tag match and state is quit
                     *pid = i;
                     *status = child->status;
                     int r = P1ContextFree(i);
-                    cur->children[i] = 0;
-                    child->state = P1_STATE_FREE;
+					child->state = P1_STATE_FREE;
 					assert(r == P1_SUCCESS);
                     return P1_SUCCESS;
 
@@ -355,10 +349,12 @@ P1SetState(int pid, P1_State state, int sid)
 
     if (state == P1_STATE_JOINING) {
         for (i = 0; i < P1_MAXPROC; ++i) {
+
             int child = processTable[pid].children[i];
             if (child) {
-                if (processTable[i].state == P1_STATE_QUIT)
+                if (processTable[i].state == P1_STATE_QUIT) {
                     return P1_CHILD_QUIT;
+				}
             }
         }
     }
@@ -426,18 +422,18 @@ P1Dispatch(int rotate)
 	// switch contexts if rotate is false and either first process or if there
 	// is a higher priority process than what is currently running.
 	if ((running == -1 || hpp->data != running) &&  rotate == FALSE ) {
-        setTimer();
 		running = hpp->data;
 		processTable[hpp->data].state = P1_STATE_RUNNING;
+		setTimer();
         int r = P1ContextSwitch(hpp->data);
         assert(r == P1_SUCCESS);
 	}
 
 	// if rotate is true switch process to next highest priority
 	if (rotate == TRUE) {
-		setTimer();
-        running = hpper->data;
+		running = hpper->data;
 		processTable[hpper->data].state = P1_STATE_RUNNING;
+		setTimer();
         int r = P1ContextSwitch(hpper->data);
         assert(r == P1_SUCCESS);
 	}
