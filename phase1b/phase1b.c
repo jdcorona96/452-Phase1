@@ -147,11 +147,6 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     if (!flag)
         return P1_TOO_MANY_PROCESSES;
 
-	//set forked process as child
-    processTable[running].children[*pid] = 1;
-	processTable[running].numChildren++;
-
-
     // create a context using P1ContextCreate
     int r = P1ContextCreate(&bLaunch, arg, stacksize, pid);
     assert(r == P1_SUCCESS);
@@ -171,6 +166,13 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     tempPCB->status = 0;
     tempPCB->func = func;
     
+    if (running != -1) {
+        //set forked process as child
+        processTable[running].children[*pid] = 1;
+	    processTable[running].numChildren++;
+    }
+
+
 
     //add new process to ready queue
    	struct Node* currNode = head;
@@ -303,17 +305,19 @@ P1GetChildStatus(int tag, int *pid, int *status)
 
         //getting the child
         if(cur->children[i]) {
-			USLOSS_Console("1");
+			//USLOSS_Console("1");
             PCB *child = &processTable[i];
             if (child->tag == tag) {
-                USLOSS_Console("2");
+                //USLOSS_Console("2");
 
                 if (child->state == P1_STATE_QUIT) {
-					USLOSS_Console("3\n");
+					//USLOSS_Console("3\n");
 
                     //child's tag match and state is quit
                     *pid = i;
                     *status = child->status;
+                    cur->children[i] = 0;
+                    cur->numChildren--;
                     int r = P1ContextFree(i);
 					child->state = P1_STATE_FREE;
 					assert(r == P1_SUCCESS);
