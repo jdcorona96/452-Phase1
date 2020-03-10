@@ -13,10 +13,9 @@
 
 // might not be used ----------------------------------------------------------------------------//intid
 struct node {
-	int val;
-    PCB process;
+	int pid;
   	struct node *next;
-}
+};
 // ----------------------------------------------------------------------------------------------  
   
 typedef struct Sem
@@ -94,9 +93,9 @@ int P1_SemCreate(char *name, unsigned int value, int *sid)
     return P1_TOO_MANY_SEMS;
   
   if (prevInt) 
-    P1EnableInterrupts;
+    P1EnableInterrupts();
 
-  P1_SUCCESS
+  return P1_SUCCESS;
 }
 
 int P1_SemFree(int sid)
@@ -107,7 +106,7 @@ int P1_SemFree(int sid)
 
   // might need to be changed -------------------------------------------------------------------------
   // P1_BLOCKED_PROCESSES: processes are blocked on the semaphore
-  if (sems[sid].head.next.next != NULL)
+  if (sems[sid].head->next->next != NULL)
     return P1_BLOCKED_PROCESSES;
   // ----------------------------------------------------^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   
@@ -120,7 +119,8 @@ int P1_SemFree(int sid)
 
 int P1_P(int sid)
 {
-  kernelMode()
+  kernelMode();
+  
   int prevInt = P1DisableInterrupts();
   
   // while value == 0
@@ -128,7 +128,9 @@ int P1_P(int sid)
   while(sems[sid].value == 0) {
     
     int runningPCB = P1_GetPid();
-    P1SetState(runningPCB, P1_STATE_BLOCKED, sid);
+    int rt = P1SetState(runningPCB, P1_STATE_BLOCKED, sid);
+    if (rt != P1_SUCCESS)
+        USLOSS_Halt(1);
     //processTable[runningPCB].state = P1_STATE_BLOCKED;
   }
   
@@ -150,8 +152,11 @@ int P1_V(int sid)
     struct node *head = sems[sid].head;
   
   if (head->next->next != NULL) {
-	struct node *blocked = head->next->next;
-    blocked->process.state = P1_STATE_READY;
+	int runningPid = P1_GetPid();
+    int rt = P1SetState(runningPid, P1_STATE_READY, sid);
+    if (rt != P1_SUCCESS)
+        USLOSS_Halt(1);
+
   }
     
   // re-enable interrupts if they were previously enabled
