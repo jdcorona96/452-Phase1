@@ -11,20 +11,19 @@
 #include "usloss.h"
 #include "phase1Int.h"
 
-// might not be used ----------------------------------------------------------------------------//intid
+// node for the Linked List
 struct node {
 	int pid;
   	struct node *next;
 };
-// ----------------------------------------------------------------------------------------------  
   
 typedef struct Sem
 {
     char        name[P1_MAXNAME+1];
     u_int       value;
     
-  // more fields here
-	  struct node *head;
+    // more fields here 
+    struct node *head; // for the sem waiting Queue
 } Sem;
 
 static Sem sems[P1_MAXSEM];
@@ -38,7 +37,6 @@ void kernelMode(void) {
   }
 }
 
-
 void 
 P1SemInit(void)
 {
@@ -46,6 +44,13 @@ P1SemInit(void)
     for (int i = 0; i < P1_MAXSEM; i++) {
         sems[i].name[0] = '\0';
         // initialize rest of sem here
+        
+        // setting head of the sem queue
+        struct node *headInit = (struct node*) malloc(sizeof(struct node)); 
+        headInit->pid = -1; // always NULL
+        headInit->next = NULL; //setting it as an empty linked list
+        sems[i].head = headInit;
+
     }
 }
 
@@ -73,15 +78,11 @@ int P1_SemCreate(char *name, unsigned int value, int *sid)
   int flag = 1;
   for (i = 0; i < P1_MAXSEM; ++i) {
     if (sems[i].name[0] == '\0') {
+
+        //setting values of sem
       strcpy(sems[i].name, name);
       sems[i].value = value;
-      // might be deleted ---------------------------------------------------------------------------
-      struct node *headInit = (struct node*) malloc(sizeof(struct node)); 
-      headInit->pid = -1; // always NULL
-      headInit->next = NULL; //setting it as an empty linked list
-      // ---------^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-      sems[i].head = headInit; //this too ^^
       flag = 0;
       *sid = i;
       break;
@@ -104,14 +105,14 @@ int P1_SemFree(int sid)
   if (sid < 0 || sid > P1_MAXSEM)
     return P1_INVALID_SID;
 
-  // might need to be changed -------------------------------------------------------------------------
+  struct node *head = sems[sid].head;
+
   // P1_BLOCKED_PROCESSES: processes are blocked on the semaphore
-  if (sems[sid].head->next->next != NULL)
-    return P1_BLOCKED_PROCESSES;
-  // ----------------------------------------------------^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  if (head->next != NULL) { // this process has blocked processes
+      return P1_BLOCKED_PROCESSES;
+  }
   
   // freeing process
-  free(sems[sid].head); //TODO might need to change it
   sems[sid].name[0] = '\0';
 
   return P1_SUCCESS; 
@@ -119,20 +120,39 @@ int P1_SemFree(int sid)
 
 int P1_P(int sid)
 {
-  kernelMode();
+
+    kernelMode();
   
-  int prevInt = P1DisableInterrupts();
-  
-  // while value == 0
-  //      set state to P1_STATE_BLOCKED
-  while(sems[sid].value == 0) {
+    int prevInt = P1DisableInterrupts();
+ 
+
+    if (sems[sid].value == 0) {
     
-    int runningPCB = P1_GetPid();
-    int rt = P1SetState(runningPCB, P1_STATE_BLOCKED, sid);
-    if (rt != P1_SUCCESS)
-        USLOSS_Halt(1);
-    //processTable[runningPCB].state = P1_STATE_BLOCKED;
-  }
+        // setting the process to the end of the waiting queue
+        struct node *ite = sems[sid].head; 
+        while (ite->next != NULL) {
+            ite = ite->next;
+        }
+        struct node *blkProcess = (struct node*) malloc(sizeof(struct node));
+        blkProcess->pid = P1_getPid();
+        blkProcess->next = NULL;
+        
+        ite->next = blkProcess;
+
+        // loops until process has a resource available
+        while(sems[sid].value == 0) {
+     
+            int runningPid = blkProcess->pid;
+            int rt = P1SetState(runningPid, P1_STATE_BLOCKED, sid);
+            if (rt != P1_SUCCESS)
+                USLOSS_Halt(1);
+        
+            // dispatch to other process
+            rc = P1Dispatch(FALSE);
+            if (rt != P1_SUCCESS)
+                USLOSS_Halt(1);
+        }
+    }
   
   // value--
   sems[sid].value--;
@@ -144,29 +164,37 @@ int P1_P(int sid)
 
 int P1_V(int sid)
 {
-  kernelMode();
+    kernelMode();
   
-  int prevInt = P1DisableInterrupts();
+    int prevInt = P1DisableInterrupts();
   
-  sems[sid].value++;
+    // frees resource
+    sems[sid].value++;
     struct node *head = sems[sid].head;
   
-  if (head->next->next != NULL) {
-	int runningPid = P1_GetPid();
-    int rt = P1SetState(runningPid, P1_STATE_READY, sid);
-    if (rt != P1_SUCCESS)
-        USLOSS_Halt(1);
+    // sets first element in linked list to ready 
+    // frees it
+    if (head->next != NULL) {
+	    int nextPid = head->next->pid;
+        int rt = P1SetState(nextPid, P1_STATE_READY, sid);
 
+        struct node *temp = head->next;
+        head->next = temp->next;
+        free(temp);
+
+        if (rt != P1_SUCCESS)
+            USLOSS_Halt(1);
   }
     
   // re-enable interrupts if they were previously enabled
-  if (prevInt)
-    P1EnableInterrupts();
-    return P1_SUCCESS;  
+  
+    if (prevInt)
+        P1EnableInterrupts();
+  return P1_SUCCESS;  
 }
 
 int P1_SemName(int sid, char *name) {
-     	char* semName = sems[sid].name;
+    char* semName = sems[sid].name;
   	strcpy(name, semName);
 	return P1_SUCCESS;
 }
