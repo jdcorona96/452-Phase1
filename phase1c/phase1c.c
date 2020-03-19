@@ -61,7 +61,7 @@ int P1_SemCreate(char *name, unsigned int value, int *sid)
   int prevInt = P1DisableInterrupts();
   
   // P1_NAME_IS_NULL: name is NULL
-  if (strcmp(name, "\0") == 0)
+  if (name == NULL)
     return P1_NAME_IS_NULL;
   
   // P1_DUPLICATE_NAME: name already in use
