@@ -124,9 +124,9 @@ int P1_P(int sid)
     kernelMode();
   
     int prevInt = P1DisableInterrupts();
- 
+    struct node *head = sems[sid].head; 
 
-    if (sems[sid].value == 0) {
+    if (head->next != NULL || sems[sid].value == 0) {
     
         // setting the process to the end of the waiting queue
         struct node *ite = sems[sid].head; 

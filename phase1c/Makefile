@@ -30,7 +30,7 @@ PHASE1A_VERSION = 1.0
 
 # Set to version of Phase1b you want to use.
 
-PHASE1B_VERSION = 1.1
+PHASE1B_VERSION = 1.2
 
 # Set to version of USLOSS you want to use.
 USLOSS_VERSION = 3.6
