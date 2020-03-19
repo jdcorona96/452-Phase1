@@ -24,6 +24,9 @@ typedef struct Sem
     
     // more fields here 
     struct node *head; // for the sem waiting Queue
+    struct node *rdy; // for the sem ready queue
+    int  rdySize;
+
 } Sem;
 
 static Sem sems[P1_MAXSEM];
@@ -50,6 +53,14 @@ P1SemInit(void)
         headInit->pid = -1; // always NULL
         headInit->next = NULL; //setting it as an empty linked list
         sems[i].head = headInit;
+
+        struct node *rdyInit = (struct node*) malloc(sizeof(struct node)); 
+        rdyInit->pid = -1; // always NULL
+        rdyInit->next = NULL; //setting it as an empty linked list
+        sems[i].rdy = headInit;
+
+        sems[i].rdySize = 0;
+
 
     }
 }
@@ -115,6 +126,15 @@ int P1_SemFree(int sid)
   // freeing process
   sems[sid].name[0] = '\0';
 
+  struct node *rdy = sems[sid].rdy;
+  while(rdy->next != NULL) {
+
+      rdy->next = rdy->next->next;
+      free(rdy->next);
+  }
+
+  sems[sid].rdySize = 0;
+
   return P1_SUCCESS; 
 }
 
@@ -126,7 +146,10 @@ int P1_P(int sid)
     int prevInt = P1DisableInterrupts();
     struct node *head = sems[sid].head; 
 
-    if (head->next != NULL || sems[sid].value == 0) {
+    int value = sems[sid].value;
+    int rdySize = sems[sid].rdySize;
+
+    if (head->next != NULL || value <= rdySize ) {
     
         // setting the process to the end of the waiting queue
         struct node *ite = sems[sid].head; 
@@ -152,6 +175,19 @@ int P1_P(int sid)
             if (rt != P1_SUCCESS)
                 USLOSS_Halt(1);
         }
+
+        struct node *ready = sems[sid].rdy;
+        while (ready->next != NULL) {
+            
+            if (ready->next->pid == P1_GetPid()) {
+
+                struct node *temp = ready->next;
+                ready->next = temp->next;
+                free(temp);
+                sems[sid].rdySize--;
+                break;
+            }
+        }
     }
   
   // value--
@@ -172,15 +208,20 @@ int P1_V(int sid)
     sems[sid].value++;
     struct node *head = sems[sid].head;
   
-    // sets first element in linked list to ready 
-    // frees it
+    // sets first element in linked list to ready queue
     if (head->next != NULL) {
-	    int nextPid = head->next->pid;
+
+        struct node *headElem = head->next;
+	    
+        int nextPid = headElem->pid;
         int rt = P1SetState(nextPid, P1_STATE_READY, sid);
 
-        struct node *temp = head->next;
-        head->next = temp->next;
-        free(temp);
+        head->next = headElem->next;
+        
+        struct node *rdy = sems[sid].rdy;
+        headElem->next = rdy->next;
+        rdy->next = headElem;
+        sems[sid].rdySize++;
 
         if (rt != P1_SUCCESS)
             USLOSS_Halt(1);
