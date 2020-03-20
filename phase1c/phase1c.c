@@ -57,7 +57,7 @@ P1SemInit(void)
         struct node *rdyInit = (struct node*) malloc(sizeof(struct node)); 
         rdyInit->pid = -1; // always NULL
         rdyInit->next = NULL; //setting it as an empty linked list
-        sems[i].rdy = headInit;
+        sems[i].rdy = rdyInit;
 
         sems[i].rdySize = 0;
 
@@ -129,8 +129,9 @@ int P1_SemFree(int sid)
   struct node *rdy = sems[sid].rdy;
   while(rdy->next != NULL) {
 
+      struct node *temp = rdy->next;
       rdy->next = rdy->next->next;
-      free(rdy->next);
+      free(temp);
   }
 
   sems[sid].rdySize = 0;
