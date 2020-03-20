@@ -141,8 +141,10 @@ int P1_SemFree(int sid)
 
 int P1_P(int sid)
 {
-
     kernelMode();
+
+    if (sid < 0 || sid > P1_MAXSEM)
+        return P1_INVALID_SID;
   
     int prevInt = P1DisableInterrupts();
     struct node *head = sems[sid].head; 
@@ -202,6 +204,9 @@ int P1_P(int sid)
 int P1_V(int sid)
 {
     kernelMode();
+
+    if (sid < 0 || sid > P1_MAXSEM)
+        return P1_INVALID_SID;
   
     int prevInt = P1DisableInterrupts();
   
