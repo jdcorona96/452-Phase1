@@ -1,4 +1,5 @@
 
+
 /* Phase1c project
  * Joseph Corona | jdcorona96
  * Luke | lacernetic
@@ -113,7 +114,7 @@ int P1_SemCreate(char *name, unsigned int value, int *sid)
 int P1_SemFree(int sid)
 {
     // P1_INVALID_SID: the semaphore is invalid
-  if (sid < 0 || sid > P1_MAXSEM)
+  if (sid < 0 || sid > P1_MAXSEM || sems[sid].name[0] == '\0')
     return P1_INVALID_SID;
 
   struct node *head = sems[sid].head;
@@ -143,7 +144,7 @@ int P1_P(int sid)
 {
     kernelMode();
 
-    if (sid < 0 || sid > P1_MAXSEM)
+    if (sid < 0 || sid > P1_MAXSEM || sems[sid].name[0] == '\0')
         return P1_INVALID_SID;
   
     int prevInt = P1DisableInterrupts();
@@ -198,6 +199,7 @@ int P1_P(int sid)
   
   if (prevInt)
     P1EnableInterrupts();
+
    return P1_SUCCESS;
 }
 
@@ -205,7 +207,7 @@ int P1_V(int sid)
 {
     kernelMode();
 
-    if (sid < 0 || sid > P1_MAXSEM)
+    if (sid < 0 || sid > P1_MAXSEM || sems[sid].name[0] == '\0' )
         return P1_INVALID_SID;
   
     int prevInt = P1DisableInterrupts();
@@ -237,7 +239,10 @@ int P1_V(int sid)
   
     if (prevInt)
         P1EnableInterrupts();
-  return P1_SUCCESS;  
+
+    P1Dispatch(FALSE);
+  
+    return P1_SUCCESS;  
 }
 
 int P1_SemName(int sid, char *name) {
