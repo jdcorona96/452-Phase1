@@ -1,8 +1,7 @@
-
-
-/* Phase1c project
- * Joseph Corona | jdcorona96
- * Luke | lacernetic
+/* File: phase1c.c
+ * Authors: Joseph Corona | jdcorona96 & Luke | lacernetic
+ * Class: CSC 452
+ * Purpose: Implements semaphores into our current verison of an operating system.
  */
 #include <stddef.h>
 #include <stdlib.h>
@@ -12,7 +11,7 @@
 #include "usloss.h"
 #include "phase1Int.h"
 
-// node for the Linked List
+// node for semaphore waiting queue. pid determines the waiting process's pid
 struct node {
 	int pid;
   	struct node *next;
@@ -23,7 +22,6 @@ typedef struct Sem
     char        name[P1_MAXNAME+1];
     u_int       value;
     
-    // more fields here 
     struct node *head; // for the sem waiting Queue
     struct node *rdy; // for the sem ready queue
     int  rdySize;
@@ -32,6 +30,9 @@ typedef struct Sem
 
 static Sem sems[P1_MAXSEM];
 
+/*
+* Checks if the current mode is in user mode and returns IllegalInstruction if true
+*/
 void kernelMode(void) {
 
   int psr = USLOSS_PsrGet();
@@ -41,6 +42,10 @@ void kernelMode(void) {
   }
 }
 
+/*
+* Function that is called at the begining of every test. This function initializes
+* each semaphore to its null values. 
+*/
 void 
 P1SemInit(void)
 {
@@ -66,6 +71,12 @@ P1SemInit(void)
     }
 }
 
+/*
+* Creates a semaphore given a name, a value, and an sid. After checking for
+* illegal name inputs, sets the a semaphore's value to the value and name
+* to the name and returns the sid of the semaphore through the pointer
+* in the parameter. 
+*/
 int P1_SemCreate(char *name, unsigned int value, int *sid)
 {
   kernelMode();
@@ -111,6 +122,9 @@ int P1_SemCreate(char *name, unsigned int value, int *sid)
   return P1_SUCCESS;
 }
 
+/*
+* Frees the semaphore by setting settings back to default.
+*/
 int P1_SemFree(int sid)
 {
     // P1_INVALID_SID: the semaphore is invalid
@@ -140,6 +154,12 @@ int P1_SemFree(int sid)
   return P1_SUCCESS; 
 }
 
+/*
+* Performs the "down" primitive operation of the semaphore. This function waits for 
+* semaphore value to become greater than zero and then decrements the value by 1. 
+* Also puts the current process at the end of the waiting queue so that it can
+* eventually be run. 
+*/ 
 int P1_P(int sid)
 {
     kernelMode();
@@ -203,6 +223,11 @@ int P1_P(int sid)
    return P1_SUCCESS;
 }
 
+/*
+* Performs the "up" primitive operation that increments the semaphore's value by 1.
+* This operation also removes a value from the semaphore queue because a process has
+* been completed when this function is called. 
+*/
 int P1_V(int sid)
 {
     kernelMode();
@@ -245,6 +270,9 @@ int P1_V(int sid)
     return P1_SUCCESS;  
 }
 
+/*
+* Returns the semaphore's name given the sid via the pointer parameter.
+*/
 int P1_SemName(int sid, char *name) {
     char* semName = sems[sid].name;
   	strcpy(name, semName);
