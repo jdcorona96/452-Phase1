@@ -13,8 +13,16 @@ static void IllegalInstructionHandler(int type, void *arg);
 
 static int sentinel(void *arg);
 
-// Globabl variables
+typedef struct DeviceInfo {
+	int sid;
+	int status;
+	int abort;
+}
+
+// Global variables
 Sem devSem[4][4]; 
+DeviceInfo deviceArray[4][4];
+int ticks = 0;
 
 //------------
 
@@ -22,25 +30,46 @@ Sem devSem[4][4];
 static void intInit() {
 
     int sid;
-
-    //TODO: check which value each sem must start
-
     P1_SemCreate("Clock", 1, &sid);
-    devSem[0][0] =  sid;
+    deviceArray[0][0].sid = sid;
+	deviceArray[0][0].status = 0;
+	deviceArray[0][0].aborted = 0;
+
     P1_SemCreate("Alarm", 1, &sid);
-    devSem[1][0] =  sid;
+    deviceArray[1][0].sid = sid;
+	deviceArray[1][0].status = 0;
+	deviceArray[1][0].aborted = 0;
+
     P1_SemCreate("Disk0", 1, &sid);
-    devSem[2][0] =  sid;
+    deviceArray[2][0].sid = sid;
+	deviceArray[2][0].status = 0;
+	deviceArray[2][0].aborted = 0;
+
     P1_SemCreate("Disk1", 1, &sid);
-    devSem[2][1] =  sid;
+    deviceArray[2][1].sid = sid;
+	deviceArray[2][1].status = 0;
+	deviceArray[2][1].aborted = 0;
+
     P1_SemCreate("Term0", 1, &sid);
-    devSem[3][0] =  sid;
+    deviceArray[3][0].sid = sid;
+	deviceArray[3][0].status = 0;
+	deviceArray[3][0].aborted = 0;
+
     P1_SemCreate("Term1", 1, &sid);
-    devSem[3][1] =  sid;
+    deviceArray[3][1].sid = sid;
+	deviceArray[3][1].status = 0;
+	deviceArray[3][1].aborted = 0;
+
     P1_SemCreate("Term2", 1, &sid);
-    devSem[3][2] =  sid;
+    deviceArray[3][2].sid = sid;
+	deviceArray[3][2].status = 0;
+	deviceArray[3][2].aborted = 0;
+
     P1_SemCreate("Term3", 1, &sid);
-    devSem[3][3] =  sid;
+    deviceArray[3][3].sid = sid;
+	deviceArray[3][3].status = 0;
+	deviceArray[3][3].aborted = 0;
+
 
 }
 
@@ -64,7 +93,10 @@ startup(int argc, char **argv)
 
     // put device interrupt handlers into interrupt vector
     USLOSS_IntVec[USLOSS_SYSCALL_INT] = SyscallHandler;
-    //TODO: more to do? deviceHandler() ?
+	USLOSS_IntVec[USLOSS_CLOCK_INT] = SyscallHandler;
+	USLOSS_IntVec[USLOSS_ALARM_INT] = SyscallHandler;
+	USLOSS_IntVec[USLOSS_TERM_INT] = SyscallHandler;
+	USLOSS_IntVec[USLOSS_DISK_INT] = SyscallHandler;
 
     /* create the sentinel process */
     int rc = P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6 , 0, &pid);
@@ -84,7 +116,11 @@ P1_WaitDevice(int type, int unit, int *status)
     // check kernel mode
     kernelMode();
 
-    // cehking if type is valid
+	if (deviceArray[type][unit].abort == 1) {
+		return P1_WAIT_ABORTED;
+	}
+
+    // checking if type is valid
     if (type < 0 || type > 3)
         return P1_INVALID_TYPE;
     
@@ -105,11 +141,8 @@ P1_WaitDevice(int type, int unit, int *status)
     // p device's semaphore
     P1_P(devsem[type][unit]);
 
-    // set *status to device's status
-    // TODO: how to get status??
-    // suggestion: set up global variables to store more info on 
-    //             each interrupt handler
-    
+	*status = deviceArray[type][unit].status;
+ 
     // restore interrupts
     if (prevInt)
         P1EnableInterrupts();
@@ -152,6 +185,9 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
     // v device's semaphore
     P1_V(devsem[type][unit]);
 
+	deviceArray[type][unit]->status = status;
+	deviceArray[type][unit]->abort = abort;
+
     // restore interrupts
     if (prevInt)
         P1EnableInterrupts();
@@ -163,6 +199,26 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
 static void
 DeviceHandler(int type, void *arg) 
 {
+	int *status;
+
+	int rc = USLOSS_DeviceInput(type, *arg, status);
+	assert(rc == USLOSS_DEV_OK);
+
+	if (type == 0){
+		ticks++;
+		if (ticks % 5 == 0) {
+			rc = P1_WakeupDevice(type, arg, *status, 0);
+			assert(rc == P1_SUCCESS);
+		}
+
+		if (ticks % 4 == 0) {
+			P1Dispatch(TRUE);
+		}
+	}
+	else {
+		rc = P1_WakeupDevice(type, arg, *status, 0);
+		assert(rc == P1_SUCCESS);
+	}
     // if clock device
     //      p1_wakeupdevice every 5 ticks
     //      p1dispatch(true) every 4 ticks
@@ -171,12 +227,12 @@ DeviceHandler(int type, void *arg)
 }
 
 static int
-sentinel (void *notused)
+sentinel (void *notUsed)
 {
     int     pid;
     int     rc;
 	int 	status;
-	p1_procinfo info;
+	P1_ProcInfo info;
 
 
     /* start the p2_startup process */
@@ -186,41 +242,43 @@ sentinel (void *notused)
     // enable interrupts
     P1EnableInterrupts();
 
-	rc = P1_GetProcInfo(pid, info);
-	assert(rc == P1_SUCCESS);
-	while (info->numChildren != 0){
 
+	int currPid = P1_GetPid();
+	
+
+    // while sentinel has children
+	while (info->numChildren != 0){
 		
-		rc = P1GetChildStatus(0, pid, status);
+		// phase1b: procinfo - get number of children
+		rc = P1_GetProcInfo(currPid, info);
+		assert(rc == P1_SUCCESS);
+		
+		//check for children with tag 0
+		rc = P1GetChildStatus(0, currPid, status);
 		
 		// if a child exists
 		if (rc == P1_NO_QUIT){
 			USLOSS_WaitInt();
 		}
 		else {
-			//check other tag
-			rc = P1GetChildStatus(1, pid, status);
+			//check for children with tag 1
+			rc = P1GetChildStatus(1, currPid, status);
 
 			//if a child exists
 			if (rc == P1_NO_QUIT) {
 				USLOSS_WaitInt();
 			}
 		}
-
-		rc = P1_GetProcInfo(pid, info);
-		assert(rc == P1_SUCCESS);
 	}
 
 
     // while sentinel has children
-    // phase1b: procinfo - get number of children
-
     //      get children that have quit via p1getchildstatus (either tag)
     //      wait for an interrupt via usloss_waitint
 	
 
 	// no children left
-    USLOSS_Console("sentinel quitting.\n");
+    USLOSS_Console("Sentinel quitting.\n");
     return 0;
 } /* end of sentinel */
 
@@ -228,12 +286,14 @@ int
 P1_Join(int tag, int *pid, int *status) 
 {
 	// disable interrupts
-    int prevint = P1DisableInterrupts();
+    int prevInt = P1DisableInterrupts();
 
     // check kernel mode
     kernelMode();
 
-
+	if (tag != 1 && tag != 0) {
+		return P1_INVALID_TAG;
+	}
 
 	int pid = P1_GetPid();
 	P1_ProcInfo info;
@@ -241,20 +301,45 @@ P1_Join(int tag, int *pid, int *status)
 	rc = P1_GetProcInfo(pid, info);
 	assert(rc == P1_SUCCESS);
 
-	int i;
 
-	// for each child                        
-	for (i = 0; i < info->numChildren; i++){
+	int returnPid;
+	int returnStatus; 
+
+	// while there are children                        
+	do {	
 
 		// get child info through getChildStatus
-		rc = P1GetChildStatus(tag, *pid, *status);
-	}
+		rc = P1GetChildStatus(tag, &returnPid, &returnStatus);
+		if (rc == P1_NO_QUIT){ 
+			rc = P1SetState(pid, P1_STATE_JOINING, info.sid)
+			assert(rc == P1_SUCCESS);
+			P1Dispatch(FALSE);
+
+			//get current number of children
+			rc = P1_GetProcInfo(pid, info);
+			assert(rc == P1_SUCCESS);
+
+		}
+		else if (rc == P1_NO_CHILDREN){
+			return P1_NO_CHILDREN;
+		}
+		
+		//child has quit
+		else if (rc == P1_SUCCESS){
+			break;
+		}
+	} while (info->numChildren != 0);	
+
+	*pid = returnPid;
+	*status = returnStatus;
+
     // do
     //     use P1GetChildStatus to get a child that has quit  
     //     if no children have quit
     //        set state to P1_STATE_JOINING vi P1SetState
     //        P1Dispatch(FALSE)
     // until either a child quit or there are no more children
+
     return P1_SUCCESS;
 }
 
