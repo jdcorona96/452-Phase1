@@ -17,10 +17,10 @@ typedef struct DeviceInfo {
 	int sid;
 	int status;
 	int abort;
-}
+} DeviceInfo ;
 
 // Global variables
-Sem devSem[4][4]; 
+//Sem devSem[4][4]; 
 DeviceInfo deviceArray[4][4];
 int ticks = 0;
 
@@ -29,46 +29,55 @@ int ticks = 0;
 // initializes all global variables
 static void intInit() {
 
+    int rc;
     int sid;
-    P1_SemCreate("Clock", 1, &sid);
+    rc = P1_SemCreate("Clock", 0, &sid);
+    assert(rc == P1_SUCCESS);
     deviceArray[0][0].sid = sid;
 	deviceArray[0][0].status = 0;
-	deviceArray[0][0].aborted = 0;
+	deviceArray[0][0].abort = 0;
 
-    P1_SemCreate("Alarm", 1, &sid);
+    rc = P1_SemCreate("Alarm", 0, &sid);
+    assert(rc == P1_SUCCESS);
     deviceArray[1][0].sid = sid;
 	deviceArray[1][0].status = 0;
-	deviceArray[1][0].aborted = 0;
+	deviceArray[1][0].abort = 0;
 
-    P1_SemCreate("Disk0", 1, &sid);
+    rc = P1_SemCreate("Disk0", 0, &sid);
+    assert(rc == P1_SUCCESS);
     deviceArray[2][0].sid = sid;
 	deviceArray[2][0].status = 0;
-	deviceArray[2][0].aborted = 0;
+	deviceArray[2][0].abort = 0;
 
-    P1_SemCreate("Disk1", 1, &sid);
+    rc = P1_SemCreate("Disk1", 0, &sid);
+    assert(rc == P1_SUCCESS);   
     deviceArray[2][1].sid = sid;
 	deviceArray[2][1].status = 0;
-	deviceArray[2][1].aborted = 0;
+	deviceArray[2][1].abort = 0;
 
-    P1_SemCreate("Term0", 1, &sid);
+    rc = P1_SemCreate("Term0", 0, &sid);
+    assert(rc == P1_SUCCESS);   
     deviceArray[3][0].sid = sid;
 	deviceArray[3][0].status = 0;
-	deviceArray[3][0].aborted = 0;
+	deviceArray[3][0].abort = 0;
 
-    P1_SemCreate("Term1", 1, &sid);
+    rc = P1_SemCreate("Term1", 0, &sid);
+    assert(rc == P1_SUCCESS);   
     deviceArray[3][1].sid = sid;
 	deviceArray[3][1].status = 0;
-	deviceArray[3][1].aborted = 0;
+	deviceArray[3][1].abort = 0;
 
-    P1_SemCreate("Term2", 1, &sid);
+    rc = P1_SemCreate("Term2", 0, &sid);
+    assert(rc == P1_SUCCESS);   
     deviceArray[3][2].sid = sid;
 	deviceArray[3][2].status = 0;
-	deviceArray[3][2].aborted = 0;
+	deviceArray[3][2].abort = 0;
 
-    P1_SemCreate("Term3", 1, &sid);
+    rc = P1_SemCreate("Term3", 0, &sid);
+    assert(rc == P1_SUCCESS);   
     deviceArray[3][3].sid = sid;
 	deviceArray[3][3].status = 0;
-	deviceArray[3][3].aborted = 0;
+	deviceArray[3][3].abort = 0;
 
 
 }
@@ -93,10 +102,11 @@ startup(int argc, char **argv)
 
     // put device interrupt handlers into interrupt vector
     USLOSS_IntVec[USLOSS_SYSCALL_INT] = SyscallHandler;
-	USLOSS_IntVec[USLOSS_CLOCK_INT] = SyscallHandler;
-	USLOSS_IntVec[USLOSS_ALARM_INT] = SyscallHandler;
-	USLOSS_IntVec[USLOSS_TERM_INT] = SyscallHandler;
-	USLOSS_IntVec[USLOSS_DISK_INT] = SyscallHandler;
+	USLOSS_IntVec[USLOSS_CLOCK_INT] = DeviceHandler;
+	USLOSS_IntVec[USLOSS_ALARM_INT] = DeviceHandler;
+	USLOSS_IntVec[USLOSS_TERM_INT] = DeviceHandler;
+	USLOSS_IntVec[USLOSS_DISK_INT] = DeviceHandler;
+    USLOSS_IntVec[USLOSS_ILLEGAL_INT] = IllegalInstructionHandler;
 
     /* create the sentinel process */
     int rc = P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6 , 0, &pid);
@@ -112,7 +122,7 @@ P1_WaitDevice(int type, int unit, int *status)
 {
     // disable interrupts
     int prevInt = P1DisableInterrupts();
-
+    int rc;
     // check kernel mode
     kernelMode();
 
@@ -139,8 +149,8 @@ P1_WaitDevice(int type, int unit, int *status)
     }
 
     // p device's semaphore
-    P1_P(devsem[type][unit]);
-
+    rc = P1_P(deviceArray[type][unit].sid);
+    assert(rc == P1_SUCCESS);
 	*status = deviceArray[type][unit].status;
  
     // restore interrupts
@@ -157,7 +167,7 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
 
     // disable interrupts
     int prevInt = P1DisableInterrupts();
-
+    int rc;
     // check kernel mode
     kernelMode();
 
@@ -183,10 +193,11 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
     // save abort to be used by p1_waitdevice
 
     // v device's semaphore
-    P1_V(devsem[type][unit]);
+    rc = P1_V(deviceArray[type][unit].sid);
+    assert(rc == P1_SUCCESS);
 
-	deviceArray[type][unit]->status = status;
-	deviceArray[type][unit]->abort = abort;
+	deviceArray[type][unit].status = status;
+	deviceArray[type][unit].abort = abort;
 
     // restore interrupts
     if (prevInt)
@@ -199,15 +210,16 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
 static void
 DeviceHandler(int type, void *arg) 
 {
-	int *status;
+	int *status = NULL;
 
-	int rc = USLOSS_DeviceInput(type, *arg, status);
+    int *argint = (int*) arg; 
+	int rc = USLOSS_DeviceInput(type,  *argint, status);
 	assert(rc == USLOSS_DEV_OK);
 
 	if (type == 0){
 		ticks++;
 		if (ticks % 5 == 0) {
-			rc = P1_WakeupDevice(type, arg, *status, 0);
+			rc = P1_WakeupDevice(type, *argint, *status, 0);
 			assert(rc == P1_SUCCESS);
 		}
 
@@ -216,7 +228,7 @@ DeviceHandler(int type, void *arg)
 		}
 	}
 	else {
-		rc = P1_WakeupDevice(type, arg, *status, 0);
+		rc = P1_WakeupDevice(type, *argint, *status, 0);
 		assert(rc == P1_SUCCESS);
 	}
     // if clock device
@@ -236,7 +248,7 @@ sentinel (void *notUsed)
 
 
     /* start the p2_startup process */
-    rc = P1_Fork("P2_Startup", P2_Startup, null, 4 * USLOSS_MIN_STACK, 2 , 0, &pid);
+    rc = P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 2 , 0, &pid);
     assert(rc == P1_SUCCESS);
 
     // enable interrupts
@@ -244,17 +256,17 @@ sentinel (void *notUsed)
 
 
 	int currPid = P1_GetPid();
-	
+
+    USLOSS_Console("%d\n", currPid);
+    // phase1b: procinfo - get number of children
+    rc = P1_GetProcInfo(currPid, &info);
+    assert(rc = P1_SUCCESS);
 
     // while sentinel has children
-	while (info->numChildren != 0){
-		
-		// phase1b: procinfo - get number of children
-		rc = P1_GetProcInfo(currPid, info);
-		assert(rc == P1_SUCCESS);
-		
+	while (info.numChildren != 0){
+				
 		//check for children with tag 0
-		rc = P1GetChildStatus(0, currPid, status);
+		rc = P1GetChildStatus(0, &pid, &status);
 		
 		// if a child exists
 		if (rc == P1_NO_QUIT){
@@ -262,13 +274,17 @@ sentinel (void *notUsed)
 		}
 		else {
 			//check for children with tag 1
-			rc = P1GetChildStatus(1, currPid, status);
+			rc = P1GetChildStatus(1, &pid, &status);
 
 			//if a child exists
 			if (rc == P1_NO_QUIT) {
 				USLOSS_WaitInt();
 			}
 		}
+ 		// phase1b: procinfo - get number of children    
+		rc = P1_GetProcInfo(currPid, &info);
+		assert(rc == P1_SUCCESS);
+
 	}
 
 
@@ -287,6 +303,7 @@ P1_Join(int tag, int *pid, int *status)
 {
 	// disable interrupts
     int prevInt = P1DisableInterrupts();
+    int rc;
 
     // check kernel mode
     kernelMode();
@@ -295,10 +312,10 @@ P1_Join(int tag, int *pid, int *status)
 		return P1_INVALID_TAG;
 	}
 
-	int pid = P1_GetPid();
+	int curPid = P1_GetPid();
 	P1_ProcInfo info;
 
-	rc = P1_GetProcInfo(pid, info);
+	rc = P1_GetProcInfo(curPid, &info);
 	assert(rc == P1_SUCCESS);
 
 
@@ -311,12 +328,16 @@ P1_Join(int tag, int *pid, int *status)
 		// get child info through getChildStatus
 		rc = P1GetChildStatus(tag, &returnPid, &returnStatus);
 		if (rc == P1_NO_QUIT){ 
-			rc = P1SetState(pid, P1_STATE_JOINING, info.sid)
+			rc = P1SetState(curPid, P1_STATE_JOINING, info.sid);
 			assert(rc == P1_SUCCESS);
+            if (prevInt)
+                P1EnableInterrupts();
 			P1Dispatch(FALSE);
 
+            prevInt = P1DisableInterrupts();
+            
 			//get current number of children
-			rc = P1_GetProcInfo(pid, info);
+			rc = P1_GetProcInfo(curPid, &info);
 			assert(rc == P1_SUCCESS);
 
 		}
@@ -328,7 +349,7 @@ P1_Join(int tag, int *pid, int *status)
 		else if (rc == P1_SUCCESS){
 			break;
 		}
-	} while (info->numChildren != 0);	
+	} while (info.numChildren != 0);	
 
 	*pid = returnPid;
 	*status = returnStatus;
@@ -340,6 +361,9 @@ P1_Join(int tag, int *pid, int *status)
     //        P1Dispatch(FALSE)
     // until either a child quit or there are no more children
 
+    if (prevInt)
+        P1EnableInterrupts();
+
     return P1_SUCCESS;
 }
 
@@ -348,6 +372,12 @@ SyscallHandler(int type, void *arg)
 {
     USLOSS_Console("System call %d not implemented.\n", (int) arg);
     USLOSS_IllegalInstruction();
+}
+
+static void IllegalInstructionHandler(int type, void *arg) {
+
+    USLOSS_Console("error in USLOSS");
+    USLOSS_Halt(1);
 }
 
 void finish(int argc, char **argv) {}
