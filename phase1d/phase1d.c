@@ -121,6 +121,7 @@ int
 P1_WaitDevice(int type, int unit, int *status) 
 {
     // disable interrupts
+	
     int prevInt = P1DisableInterrupts();
     int rc;
     // check kernel mode
@@ -149,6 +150,7 @@ P1_WaitDevice(int type, int unit, int *status)
     }
 
     // p device's semaphore
+
     rc = P1_P(deviceArray[type][unit].sid);
     assert(rc == P1_SUCCESS);
 	*status = deviceArray[type][unit].status;
@@ -210,16 +212,16 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
 static void
 DeviceHandler(int type, void *arg) 
 {
-	int *status = NULL;
+	int status;
 
-    int *argint = (int*) arg; 
-	int rc = USLOSS_DeviceInput(type,  *argint, status);
+    int argint = (int) arg; 
+	int rc = USLOSS_DeviceInput(type,  argint, &status);
 	assert(rc == USLOSS_DEV_OK);
 
 	if (type == 0){
 		ticks++;
 		if (ticks % 5 == 0) {
-			rc = P1_WakeupDevice(type, *argint, *status, 0);
+			rc = P1_WakeupDevice(type, argint, status, 0);
 			assert(rc == P1_SUCCESS);
 		}
 
@@ -228,7 +230,7 @@ DeviceHandler(int type, void *arg)
 		}
 	}
 	else {
-		rc = P1_WakeupDevice(type, *argint, *status, 0);
+		rc = P1_WakeupDevice(type, argint, status, 0);
 		assert(rc == P1_SUCCESS);
 	}
     // if clock device
@@ -250,17 +252,16 @@ sentinel (void *notUsed)
     /* start the p2_startup process */
     rc = P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 2 , 0, &pid);
     assert(rc == P1_SUCCESS);
-
+	
     // enable interrupts
     P1EnableInterrupts();
 
 
 	int currPid = P1_GetPid();
 
-    USLOSS_Console("%d\n", currPid);
     // phase1b: procinfo - get number of children
     rc = P1_GetProcInfo(currPid, &info);
-    assert(rc = P1_SUCCESS);
+    assert(rc == P1_SUCCESS);
 
     // while sentinel has children
 	while (info.numChildren != 0){
