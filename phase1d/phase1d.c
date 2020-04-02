@@ -46,8 +46,8 @@ static void intInit() {
     rc = P1_SemCreate("Disk0", 0, &sid);
     assert(rc == P1_SUCCESS);
     deviceArray[2][0].sid = sid;
-	deviceArray[2][0].status = 0;
-	deviceArray[2][0].abort = 0;
+	//deviceArray[2][0].status = 0;
+	//deviceArray[2][0].abort = 0;
 
     rc = P1_SemCreate("Disk1", 0, &sid);
     assert(rc == P1_SUCCESS);   
@@ -173,6 +173,9 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
     // check kernel mode
     kernelMode();
 
+    //TESTING
+    //USLOSS_Console("type:%d unit:%d\n",type,unit);
+
     // cehking if type is valid
     if (type < 0 || type > 3)
         return P1_INVALID_TYPE;
@@ -214,7 +217,15 @@ DeviceHandler(int type, void *arg)
 {
 	int status;
 
-    int argint = (int) arg; 
+    int argint;
+    if (arg == NULL)
+        argint = 0;
+    else 
+        argint = *((int*) arg); 
+
+    //TESTING
+    //USLOSS_Console("DH unit:%d\n",argint);
+
 	int rc = USLOSS_DeviceInput(type,  argint, &status);
 	assert(rc == USLOSS_DEV_OK);
 
@@ -377,8 +388,7 @@ SyscallHandler(int type, void *arg)
 
 static void IllegalInstructionHandler(int type, void *arg) {
 
-    USLOSS_Console("error in USLOSS");
-    USLOSS_Halt(1);
+    P1_Quit(1024);
 }
 
 void finish(int argc, char **argv) {}
