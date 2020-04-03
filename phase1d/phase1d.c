@@ -1,3 +1,14 @@
+/*
+* Authors: Luke Cernetic || Joeseph Corona
+*
+* File: phase1d.c
+*
+* Class: CSC452
+*
+* Purpose: Finishes up phase1 by implementing the sentinel process and waitDevice
+* as well as a join function. 
+*/
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,13 +31,17 @@ typedef struct DeviceInfo {
 } DeviceInfo ;
 
 // Global variables
-//Sem devSem[4][4]; 
+
 DeviceInfo deviceArray[4][4];
 int ticks = 0;
 
 //------------
 
-// initializes all global variables
+
+/*
+* This function initializes the deviceArray by creating semaphores and putting them
+* in there along with the other values belonging to DeviceInfo.
+*/
 static void intInit() {
 
     int rc;
@@ -78,10 +93,11 @@ static void intInit() {
     deviceArray[3][3].sid = sid;
 	deviceArray[3][3].status = 0;
 	deviceArray[3][3].abort = 0;
-
-
 }
 
+/*
+* Checks if function is called in kernel mode and if it is not, returns an error.
+*/
 void kernelMode(void) {
     int psr = USLOSS_PsrGet();
     
@@ -90,7 +106,11 @@ void kernelMode(void) {
     }    
 }
 
-
+/*
+* This is the first function to be called. It in turn calls the initializing
+* functions and sets the program handlers. Finally calls fork on the sentinel function
+* to start the processes.
+*/
 void 
 startup(int argc, char **argv)
 {
@@ -111,19 +131,25 @@ startup(int argc, char **argv)
     /* create the sentinel process */
     int rc = P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6 , 0, &pid);
     assert(rc == P1_SUCCESS);
+	
     // should not return
     assert(0);
     return;
 
-} /* End of startup */
+}
 
+/*
+* Calls P on the given device and returns the final status as a parameter.
+*/
 int 
 P1_WaitDevice(int type, int unit, int *status) 
 {
-    // disable interrupts
+	int rc;
 	
+    // disable interrupts
     int prevInt = P1DisableInterrupts();
-    int rc;
+
+	
     // check kernel mode
     kernelMode();
 
@@ -149,10 +175,10 @@ P1_WaitDevice(int type, int unit, int *status)
             return P1_INVALID_UNIT;
     }
 
-    // p device's semaphore
-
+    // call P on device's semaphore
     rc = P1_P(deviceArray[type][unit].sid);
     assert(rc == P1_SUCCESS);
+	
 	*status = deviceArray[type][unit].status;
  
     // restore interrupts
@@ -162,21 +188,22 @@ P1_WaitDevice(int type, int unit, int *status)
     return P1_SUCCESS;
 }
 
-
+/*
+* Calls V on the given device's semaphore and sets the wait device's status and
+* return values to the given parameters.
+*/
 int 
 P1_WakeupDevice(int type, int unit, int status, int abort) 
 {
-
+	int rc;
+		
     // disable interrupts
     int prevInt = P1DisableInterrupts();
-    int rc;
+
     // check kernel mode
     kernelMode();
 
-    //TESTING
-    //USLOSS_Console("type:%d unit:%d\n",type,unit);
-
-    // cehking if type is valid
+    // checking if type is valid
     if (type < 0 || type > 3)
         return P1_INVALID_TYPE;
     
@@ -194,13 +221,12 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
             return P1_INVALID_UNIT;
     }
 
-    // save device's status to be used by p1_waitdevice
-    // save abort to be used by p1_waitdevice
-
     // v device's semaphore
     rc = P1_V(deviceArray[type][unit].sid);
     assert(rc == P1_SUCCESS);
 
+    // save device's status to be used by p1_waitdevice
+    // save abort to be used by p1_waitdevice
 	deviceArray[type][unit].status = status;
 	deviceArray[type][unit].abort = abort;
 
@@ -212,6 +238,12 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
 
 }
 
+/*
+* First calls USLOSS_DeviceInput and then performs an action depending on the 
+* device given. If the device is clock, then on every fifth call, performs
+* P1_WakeupDevice and every fourth time calls dispatch. Otherwise, we simply call
+* P1_WakeupDevice.
+*/
 static void
 DeviceHandler(int type, void *arg) 
 {
@@ -222,9 +254,6 @@ DeviceHandler(int type, void *arg)
         argint = 0;
     else 
         argint = *((int*) arg); 
-
-    //TESTING
-    //USLOSS_Console("DH unit:%d\n",argint);
 
 	int rc = USLOSS_DeviceInput(type,  argint, &status);
 	assert(rc == USLOSS_DEV_OK);
@@ -244,13 +273,14 @@ DeviceHandler(int type, void *arg)
 		rc = P1_WakeupDevice(type, argint, status, 0);
 		assert(rc == P1_SUCCESS);
 	}
-    // if clock device
-    //      p1_wakeupdevice every 5 ticks
-    //      p1dispatch(true) every 4 ticks
-    // else
-    //      p1_wakeupdevice
 }
 
+/*
+* This is the first process to start and therefore the last process to end. Therefore
+* by nature this process will not end until all other processes have quit. It does
+* this by looping while this process has children and after a child is found, cleans it up and
+* waits for an interupt.
+*/
 static int
 sentinel (void *notUsed)
 {
@@ -259,14 +289,12 @@ sentinel (void *notUsed)
 	int 	status;
 	P1_ProcInfo info;
 
-
     /* start the p2_startup process */
     rc = P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 2 , 0, &pid);
     assert(rc == P1_SUCCESS);
 	
     // enable interrupts
     P1EnableInterrupts();
-
 
 	int currPid = P1_GetPid();
 
@@ -297,19 +325,21 @@ sentinel (void *notUsed)
 		rc = P1_GetProcInfo(currPid, &info);
 		assert(rc == P1_SUCCESS);
 
-	}
-
-
-    // while sentinel has children
-    //      get children that have quit via p1getchildstatus (either tag)
-    //      wait for an interrupt via usloss_waitint
-	
+	}	
 
 	// no children left
     USLOSS_Console("Sentinel quitting.\n");
     return 0;
-} /* end of sentinel */
+}
 
+/*
+* This function synchronizes a parent with a child that has quit. It does this by
+* by calling get child status and performing an action based on the return value.
+* If the value is P1_NO_QUIT then we set the state of the current process to joining
+* and call dispatch. Otherwise, if there are no children we return no children and if
+* the call returns P1_SUCCESS, we exit the loop. We then return the pid and status via
+* the parameters.
+*/
 int 
 P1_Join(int tag, int *pid, int *status) 
 {
@@ -329,7 +359,6 @@ P1_Join(int tag, int *pid, int *status)
 
 	rc = P1_GetProcInfo(curPid, &info);
 	assert(rc == P1_SUCCESS);
-
 
 	int returnPid;
 	int returnStatus; 
@@ -366,13 +395,6 @@ P1_Join(int tag, int *pid, int *status)
 	*pid = returnPid;
 	*status = returnStatus;
 
-    // do
-    //     use P1GetChildStatus to get a child that has quit  
-    //     if no children have quit
-    //        set state to P1_STATE_JOINING vi P1SetState
-    //        P1Dispatch(FALSE)
-    // until either a child quit or there are no more children
-
     if (prevInt)
         P1EnableInterrupts();
 
@@ -386,6 +408,9 @@ SyscallHandler(int type, void *arg)
     USLOSS_IllegalInstruction();
 }
 
+/*
+* If an illegal instruction is given, this handler quits the process.
+*/
 static void IllegalInstructionHandler(int type, void *arg) {
 
     P1_Quit(1024);
