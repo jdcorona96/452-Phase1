@@ -61,8 +61,8 @@ static void intInit() {
     rc = P1_SemCreate("Disk0", 0, &sid);
     assert(rc == P1_SUCCESS);
     deviceArray[2][0].sid = sid;
-	//deviceArray[2][0].status = 0;
-	//deviceArray[2][0].abort = 0;
+	deviceArray[2][0].status = 0;
+	deviceArray[2][0].abort = 0;
 
     rc = P1_SemCreate("Disk1", 0, &sid);
     assert(rc == P1_SUCCESS);   
